@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
-import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import train_test_split,StratifiedKFold
 import os
@@ -13,7 +12,7 @@ import cv2
 import albumentations
 from classification_models.keras import Classifiers
 import segmentation_models as sm
-
+import pandas as pd
 from keras.layers import Input, Conv2D, Conv2DTranspose, MaxPooling2D, concatenate, Dropout,BatchNormalization
 from keras.layers import Conv2D, Concatenate, MaxPooling2D , MaxPool2D, UpSampling2D
 from keras.layers import UpSampling2D, Dropout, BatchNormalization, Multiply
@@ -32,6 +31,8 @@ import seaborn as sns
 import shutil
 
 from collections import defaultdict
+
+from tools import mask
 
 
 train_dir = 'severstal-steel-defect-detection/train_images'
@@ -52,16 +53,25 @@ model_name = 'Uefficientnet_bce'
 
 
 def run():
+    
+
     train_dir_image_check = glob.glob(train_dir + '/*')[0]
-    # train_dir_image_check = './severstal-steel-defect-detection/train_images/005d86c25.jpg'
     img = Image.open(train_dir_image_check)
-    plt.figure(figsize=(200, 40))
-    plt.axis('off')
-    plt.imshow(img)
-    plt.show()
+    mask_df = pd.read_csv(mask_dir)
+    print(mask_df)
 
+    for col in range(0, len(mask_df), 4):
+        img_names = [str(i).split("_")[0] for i in mask_df.iloc[col:col + 4, 0].values]
+        print(img_names)
+        if img_names[0] == train_dir_image_check.split('\\')[-1]:
+            mask_test = np.empty((4, np.array(img).shape[0], np.array(img).shape[1], 1))
+            for idx in range(4):
+                print(mask_df.iloc[col + idx, 1])
+                temp_mask = mask.rle2mask(mask_df.iloc[col + idx, 1], (np.array(img).shape[0], np.array(img).shape[1]))
+                mask_test[idx] = temp_mask.reshape((temp_mask.shape[0], temp_mask.shape[1], 1))
+            break
 
-    print(np.array(img).shape)
+    #print(mask_test.shape)
 
 
 
