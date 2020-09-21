@@ -12,6 +12,8 @@ import os
 import json
 import numpy as np
 import random
+import cv2 as cv
+
 '''
 Функция проходит по всем джейсонам и выбирает 
 изображения на котрых есть шов 
@@ -64,7 +66,38 @@ def split_dataset_classifier_weld(list_NO_weld, list_YES_weld, split_size=0.8, s
 
     return train_pos, train_neg, validation_pos, validation_neg
 
+'''
+Функция формирования единицы данных со швом для tf.DataSet(.npy)
+'''
+def parse_pos_images_npy(filename):
+    label = tf.constant([1], dtype=tf.float32)
+    image = np.load(filename)
+    image = tf.convert_to_tensor(image, dtype=tf.float32)
+    image = tf.image.resize(image, constants.IMG_SIZE_CLASSIFIER)
+    return image, label
 
+'''
+Функция формирования единицы данных без шва для tf.DataSet (.npy)
+'''
+def parse_neg_images_npy(filename):
+    label = tf.constant([0], dtype=tf.float32)
+    image = np.load(filename)
+    image = tf.convert_to_tensor(image, dtype=tf.float32)
+    image = tf.image.resize(image, constants.IMG_SIZE_CLASSIFIER)
+    return image, label
+
+'''
+Функция аугментации данных:
+
+'''
+def augment_image(image, label):
+    im_shape = image.shape
+    image = tf.cond(constants.AUGMENTATION_FLIP_LEFT_RIGT, true_fn = lambda: tf.image.random_flip_left_right(image), false_fn= lambda: image)
+    image = tf.cond(constants.AUGMENTATION_FLIP_UP_DOWN, true_fn = lambda: tf.image.random_flip_up_down(image), false_fn= lambda: image)
+    image = tf.cond(constants.AUGMENTATION_NOISE, true_fn = lambda: image + tf.random.normal(im_shape, mean=constants.AUGMENTATION_NOISE_MEAN,
+                                                                          stddev=constants.AUGMENTATION_NOISE_STDEV), false_fn= lambda: image)
+
+    return image, tf.cast(label, tf.float32)
 
 '''
 load dataset for training classifier "weld or no weld"
@@ -76,5 +109,5 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     list_YES_weld = make_list_yes_weld()
     train_pos, train_neg, validation_pos, validation_neg = split_dataset_classifier_weld(list_NO_weld, list_YES_weld, split_size, seed)
 
-    #print(list_YES_weld)
+
 
