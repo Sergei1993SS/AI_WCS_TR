@@ -12,7 +12,15 @@ import os
 import json
 import numpy as np
 import random
-import cv2 as cv
+
+resize_and_rescale = tf.keras.Sequential([
+        tf.keras.layers.experimental.preprocessing.Resizing(constants.CLASSIFIER_BINARY_IMG_SIZE[0],
+                                                            constants.CLASSIFIER_BINARY_IMG_SIZE[1]),
+        tf.keras.layers.experimental.preprocessing.Rescaling(1. / constants.CLASSIFIER_BINARY_NORNALIZE)])
+
+data_augmentation = tf.keras.Sequential([
+        tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
+        tf.keras.layers.experimental.preprocessing.RandomRotation(0.2)])
 
 '''
 Функция проходит по всем джейсонам и выбирает 
@@ -36,7 +44,11 @@ def make_list_yes_weld(mode = 'original'):
                     for mask in image["Masks"]:
                         if mask['class_name'] == 'weld':
                             if mode == 'original':
-                                list_YES_weld.append(os.path.splitext(dir + "/IMAGES/original/" + image['ImageName'])[0] + '.npy')
+                                path = os.path.splitext(dir + "/IMAGES/original/" + image['ImageName'])[0] + '.npy'
+                                st_size = os.stat(path).st_size
+                                if st_size >= 30081152:
+                                    list_YES_weld.append(path)
+
                             elif  mode == 'JPEG':
                                 list_YES_weld.append(dir + "/IMAGES/JPEG/" + image['ImageName'])
 
@@ -66,38 +78,76 @@ def split_dataset_classifier_weld(list_NO_weld, list_YES_weld, split_size=0.8, s
 
     return train_pos, train_neg, validation_pos, validation_neg
 
+
+
+'''
+load npy files
+'''
+def read_npy_file(file):
+    data = np.load(file.numpy())
+    return data.astype(dtype=np.float32)
+
 '''
 Функция формирования единицы данных со швом для tf.DataSet(.npy)
 '''
-def parse_pos_images_npy(filename):
+def parse_pos_images_npy_train(filemame):
+
     label = tf.constant([1], dtype=tf.float32)
-    image = np.load(filename)
-    image = tf.convert_to_tensor(image, dtype=tf.float32)
-    image = tf.image.resize(image, constants.IMG_SIZE_CLASSIFIER)
+    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
+    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
+    image = resize_and_rescale(image)
+    image = data_augmentation(image)
+    image = tf.keras.backend.squeeze(image, axis=0)
+
+    noise = tf.random.normal(image.shape, mean=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_MEAN,
+                             stddev=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_STDEV)
+
+    image = image + noise
+
+
+
+    return image, label
+
+def parse_pos_images_npy_validation(filemame):
+
+    label = tf.constant([1], dtype=tf.float32)
+    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
+    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
+    image = resize_and_rescale(image)
+    image = tf.keras.backend.squeeze(image, axis=0)
     return image, label
 
 '''
 Функция формирования единицы данных без шва для tf.DataSet (.npy)
 '''
-def parse_neg_images_npy(filename):
+
+def parse_neg_images_npy_train(filemame):
     label = tf.constant([0], dtype=tf.float32)
-    image = np.load(filename)
-    image = tf.convert_to_tensor(image, dtype=tf.float32)
-    image = tf.image.resize(image, constants.IMG_SIZE_CLASSIFIER)
+
+    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
+    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
+    image = resize_and_rescale(image)
+    image = data_augmentation(image)
+
+    image = tf.keras.backend.squeeze(image, axis=0)
+    noise = tf.random.normal(image.shape, mean=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_MEAN,
+                             stddev=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_STDEV)
+
+    image = image + noise
+
+
+
     return image, label
 
-'''
-Функция аугментации данных:
 
-'''
-def augment_image(image, label):
-    im_shape = image.shape
-    image = tf.cond(constants.AUGMENTATION_FLIP_LEFT_RIGT, true_fn = lambda: tf.image.random_flip_left_right(image), false_fn= lambda: image)
-    image = tf.cond(constants.AUGMENTATION_FLIP_UP_DOWN, true_fn = lambda: tf.image.random_flip_up_down(image), false_fn= lambda: image)
-    image = tf.cond(constants.AUGMENTATION_NOISE, true_fn = lambda: image + tf.random.normal(im_shape, mean=constants.AUGMENTATION_NOISE_MEAN,
-                                                                          stddev=constants.AUGMENTATION_NOISE_STDEV), false_fn= lambda: image)
+def parse_neg_images_npy_validation(filemame):
+    label = tf.constant([0], dtype=tf.float32)
+    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
+    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
+    image = resize_and_rescale(image)
+    image = tf.keras.backend.squeeze(image, axis=0)
+    return image, label
 
-    return image, tf.cast(label, tf.float32)
 
 '''
 load dataset for training classifier "weld or no weld"
@@ -105,9 +155,57 @@ load dataset for training classifier "weld or no weld"
 def load_data_set_classifier_weld(split_size=0.8, seed = 1):
 
     print('Start load data info')
-    list_NO_weld = [constants.PATH_CLASSIFIER_NO_WELD + file for file in os.listdir(constants.PATH_CLASSIFIER_NO_WELD)]
+    list_NO_weld = [constants.CLASSIFIER_BINARY_PATH_NO_WELD + file for file in os.listdir(constants.CLASSIFIER_BINARY_PATH_NO_WELD)]
+
+    for file in list_NO_weld:
+        st_size = os.stat(file).st_size
+        if st_size < 30081152:
+            list_NO_weld.remove(file)
+            print(np.load(file).shape)
+
     list_YES_weld = make_list_yes_weld()
     train_pos, train_neg, validation_pos, validation_neg = split_dataset_classifier_weld(list_NO_weld, list_YES_weld, split_size, seed)
 
 
+    '''
+    train positive
+    '''
+    ds_train_pos = tf.data.Dataset.from_tensor_slices(train_pos)
+    ds_train_pos = ds_train_pos.shuffle(buffer_size=len(train_pos))
+    ds_train_pos = ds_train_pos.map(parse_pos_images_npy_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_train_pos = ds_train_pos.repeat()
 
+    '''
+    train negative
+    '''
+    ds_train_neg = tf.data.Dataset.from_tensor_slices(train_neg)
+    ds_train_neg = ds_train_neg.shuffle(buffer_size=len(train_neg))
+    ds_train_neg = ds_train_neg.map(parse_neg_images_npy_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_train_neg = ds_train_neg.repeat()
+
+
+    '''
+    validation positive
+    '''
+    ds_validation_pos = tf.data.Dataset.from_tensor_slices(validation_pos)
+    ds_validation_pos = ds_validation_pos.map(parse_pos_images_npy_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+
+
+    '''
+    validation negative
+    '''
+    ds_validation_neg = tf.data.Dataset.from_tensor_slices(validation_neg)
+    ds_validation_neg = ds_validation_neg.map(parse_neg_images_npy_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_pos, ds_train_neg], weights=[0.5, 0.5])
+    resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_BATCH_SIZE)
+    resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
+
+    resampled_ds_validation = tf.data.experimental.sample_from_datasets([ds_validation_pos, ds_validation_neg])
+    resampled_ds_validation = resampled_ds_validation.batch(constants.CLASSIFIER_BATCH_SIZE)
+    resampled_ds_validation = resampled_ds_validation.prefetch(tf.data.experimental.AUTOTUNE)
+
+    resampled_steps_per_epoch = np.ceil(2.0 * len(train_neg) / constants.CLASSIFIER_BATCH_SIZE)
+
+    return resampled_ds_train, resampled_ds_validation, resampled_steps_per_epoch
