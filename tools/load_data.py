@@ -69,7 +69,7 @@ def split_dataset_classifier_weld(list_NO_weld, list_YES_weld, split_size=0.8, s
 
     train_neg = random_obj.sample(list_NO_weld, int(len(list_NO_weld)*split_size))
     train_pos = random_obj.sample(list_YES_weld, int(len(list_YES_weld) * split_size))
-    print('train_pos: {}, train_neg: {}; all_train: {}'.format(len(train_pos), len(train_neg), len(train_neg) + len(train_neg)))
+    print('train_pos: {}, train_neg: {}; all_train: {}'.format(len(train_pos), len(train_neg), len(train_pos) + len(train_neg)))
 
     validation_neg = [file for file in list_NO_weld if file not in train_neg]
     validation_pos = [file for file in list_YES_weld if file not in train_pos]
@@ -86,6 +86,22 @@ load npy files
 def read_npy_file(file):
     data = np.load(file.numpy())
     return data.astype(dtype=np.float32)
+
+'''
+Функция формирования единицы данных со швом для tf.DataSet(.jpg)
+'''
+def parse_pos_images_jpg_train(filename):
+
+    label = tf.constant([1], dtype=tf.float32)
+
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = image/constants.CLASSIFIER_BINARY_NORNALIZE
+    image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
+
+
+    return image, label
 
 '''
 Функция формирования единицы данных со швом для tf.DataSet(.npy)
@@ -108,6 +124,18 @@ def parse_pos_images_npy_train(filemame):
 
     return image, label
 
+def parse_pos_images_jpg_validation(filename):
+
+    label = tf.constant([1], dtype=tf.float32)
+
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = image / constants.CLASSIFIER_BINARY_NORNALIZE
+    image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
+
+    return image, label
+
 def parse_pos_images_npy_validation(filemame):
 
     label = tf.constant([1], dtype=tf.float32)
@@ -115,6 +143,23 @@ def parse_pos_images_npy_validation(filemame):
     image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
     image = resize_and_rescale(image)
     image = tf.keras.backend.squeeze(image, axis=0)
+    return image, label
+
+
+'''
+Функция формирования единицы данных со швом для tf.DataSet(.jpg)
+'''
+
+
+def parse_neg_images_jpg_train(filename):
+    label = tf.constant([0], dtype=tf.float32)
+
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = image / constants.CLASSIFIER_BINARY_NORNALIZE
+    image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
+
     return image, label
 
 '''
@@ -140,6 +185,18 @@ def parse_neg_images_npy_train(filemame):
     return image, label
 
 
+def parse_neg_images_jpg_validation(filename):
+
+    label = tf.constant([0], dtype=tf.float32)
+
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = image / constants.CLASSIFIER_BINARY_NORNALIZE
+    image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
+
+    return image, label
+
 def parse_neg_images_npy_validation(filemame):
     label = tf.constant([0], dtype=tf.float32)
     image = tf.py_function(read_npy_file, [filemame], [tf.float32])
@@ -150,20 +207,15 @@ def parse_neg_images_npy_validation(filemame):
 
 
 '''
-load dataset for training classifier "weld or no weld"
+load dataset for training classifier_weld "weld or no weld"
 '''
 def load_data_set_classifier_weld(split_size=0.8, seed = 1):
 
     print('Start load data info')
     list_NO_weld = [constants.CLASSIFIER_BINARY_PATH_NO_WELD + file for file in os.listdir(constants.CLASSIFIER_BINARY_PATH_NO_WELD)]
+    list_YES_weld = make_list_yes_weld(constants.CLASIIFIER_MODE_LOAD)
 
-    for file in list_NO_weld:
-        st_size = os.stat(file).st_size
-        if st_size < 30081152:
-            list_NO_weld.remove(file)
-            print(np.load(file).shape)
 
-    list_YES_weld = make_list_yes_weld()
     train_pos, train_neg, validation_pos, validation_neg = split_dataset_classifier_weld(list_NO_weld, list_YES_weld, split_size, seed)
 
 
@@ -172,7 +224,7 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     '''
     ds_train_pos = tf.data.Dataset.from_tensor_slices(train_pos)
     ds_train_pos = ds_train_pos.shuffle(buffer_size=len(train_pos))
-    ds_train_pos = ds_train_pos.map(parse_pos_images_npy_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_train_pos = ds_train_pos.map(parse_pos_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds_train_pos = ds_train_pos.repeat()
 
     '''
@@ -180,7 +232,7 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     '''
     ds_train_neg = tf.data.Dataset.from_tensor_slices(train_neg)
     ds_train_neg = ds_train_neg.shuffle(buffer_size=len(train_neg))
-    ds_train_neg = ds_train_neg.map(parse_neg_images_npy_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_train_neg = ds_train_neg.map(parse_neg_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds_train_neg = ds_train_neg.repeat()
 
 
@@ -188,7 +240,7 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     validation positive
     '''
     ds_validation_pos = tf.data.Dataset.from_tensor_slices(validation_pos)
-    ds_validation_pos = ds_validation_pos.map(parse_pos_images_npy_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_validation_pos = ds_validation_pos.map(parse_pos_images_jpg_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 
 
@@ -196,7 +248,7 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     validation negative
     '''
     ds_validation_neg = tf.data.Dataset.from_tensor_slices(validation_neg)
-    ds_validation_neg = ds_validation_neg.map(parse_neg_images_npy_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_validation_neg = ds_validation_neg.map(parse_neg_images_jpg_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_pos, ds_train_neg], weights=[0.5, 0.5])
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_BATCH_SIZE)
