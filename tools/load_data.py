@@ -12,6 +12,8 @@ import os
 import json
 import numpy as np
 import random
+import tensorflow_addons as tfa
+import cv2 as cv
 
 resize_and_rescale = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.Resizing(constants.CLASSIFIER_BINARY_IMG_SIZE[0],
@@ -20,7 +22,15 @@ resize_and_rescale = tf.keras.Sequential([
 
 data_augmentation = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-        tf.keras.layers.experimental.preprocessing.RandomRotation(0.2)])
+        tf.keras.layers.experimental.preprocessing.RandomRotation(0.2),
+
+        ]) #tf.keras.layers.experimental.preprocessing.RandomContrast((0.1, 0.7))
+
+data_augmentation_neg = tf.keras.Sequential([
+        tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
+        tf.keras.layers.experimental.preprocessing.RandomRotation(0.5),
+
+        ])
 
 '''
 Функция проходит по всем джейсонам и выбирает 
@@ -50,7 +60,9 @@ def make_list_yes_weld(mode = 'original'):
                                     list_YES_weld.append(path)
 
                             elif  mode == 'JPEG':
-                                list_YES_weld.append(dir + "/IMAGES/JPEG/" + image['ImageName'])
+                                path = dir + "/IMAGES/JPEG/" + image['ImageName']
+                                if os.path.isfile(path):
+                                    list_YES_weld.append(dir + "/IMAGES/JPEG/" + image['ImageName'])
 
     return list_YES_weld
 
@@ -97,8 +109,20 @@ def parse_pos_images_jpg_train(filename):
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = image/constants.CLASSIFIER_BINARY_NORNALIZE
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
+
+    image = tf.expand_dims(image, 0)
+    image = data_augmentation(image)
+    image = tf.squeeze(image, axis=0)
+    #image = tf.clip_by_value(image, 0.0, 1.0)
+
+    #Augmen
+    #image = tf.image.random_hue(image, 0.5)
+    image = tf.image.random_saturation(image, 0.1, 1.2)
+    image = tf.image.random_brightness(image, 0.1) #0.05 [i-0.8, i+0.8]
+    image = tf.clip_by_value(image, 0.0, 1.0)
+
+
 
 
     return image, label
@@ -131,7 +155,6 @@ def parse_pos_images_jpg_validation(filename):
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = image / constants.CLASSIFIER_BINARY_NORNALIZE
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
 
     return image, label
@@ -157,8 +180,18 @@ def parse_neg_images_jpg_train(filename):
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = image / constants.CLASSIFIER_BINARY_NORNALIZE
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
+
+    # Augment
+    image = tf.expand_dims(image, 0)
+    image = data_augmentation_neg(image)
+    image = tf.squeeze(image, axis=0)
+    #image = tf.clip_by_value(image, 0.0, 1.0)
+    image = tf.image.random_hue(image, 0.18)
+    image = tf.image.random_saturation(image, 0.1, 1.8)
+    image = tf.image.random_brightness(image, 0.3) # 0.05 [i-0.8, i+0.8]
+    image = tf.clip_by_value(image, 0.0, 1.0)
+
 
     return image, label
 
@@ -192,7 +225,6 @@ def parse_neg_images_jpg_validation(filename):
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = image / constants.CLASSIFIER_BINARY_NORNALIZE
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
 
     return image, label
@@ -227,6 +259,13 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     ds_train_pos = ds_train_pos.map(parse_pos_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds_train_pos = ds_train_pos.repeat()
 
+    '''cv.namedWindow("img", cv.WINDOW_NORMAL)
+    for element in ds_train_pos.as_numpy_iterator():
+        print(element[0].max())
+        print(element[0].min())
+        cv.imshow('img', cv.cvtColor(element[0], cv.COLOR_RGB2BGR))
+        cv.waitKey()'''
+
     '''
     train negative
     '''
@@ -252,6 +291,7 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
 
     resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_pos, ds_train_neg], weights=[0.5, 0.5])
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_BATCH_SIZE)
+    resampled_ds_train.shuffle(buffer_size=len(train_neg)+len(train_pos))
     resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
 
     resampled_ds_validation = tf.data.experimental.sample_from_datasets([ds_validation_pos, ds_validation_neg])
