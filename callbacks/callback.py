@@ -19,7 +19,7 @@ class Classifier_Weld_CallBack(tf.keras.callbacks.Callback):
             print()
             print("Model saving with val_acc -  {} %".format(self.current_val_acc*100.0))
             print()
-            if(self.current_val_acc >0.99):
+            if(self.current_val_acc >0.9999):
                 self.model.stop_training = True
 
 

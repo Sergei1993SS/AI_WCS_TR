@@ -22,7 +22,7 @@ resize_and_rescale = tf.keras.Sequential([
 
 data_augmentation = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-        tf.keras.layers.experimental.preprocessing.RandomRotation(0.2),
+        tf.keras.layers.experimental.preprocessing.RandomRotation(0.1),
 
         ]) #tf.keras.layers.experimental.preprocessing.RandomContrast((0.1, 0.7))
 
@@ -117,7 +117,7 @@ def parse_pos_images_jpg_train(filename):
     #image = tf.clip_by_value(image, 0.0, 1.0)
 
     #Augmen
-    #image = tf.image.random_hue(image, 0.5)
+    image = tf.image.random_hue(image, 0.3)
     image = tf.image.random_saturation(image, 0.1, 1.2)
     image = tf.image.random_brightness(image, 0.1) #0.05 [i-0.8, i+0.8]
     image = tf.clip_by_value(image, 0.0, 1.0)
@@ -184,12 +184,14 @@ def parse_neg_images_jpg_train(filename):
 
     # Augment
     image = tf.expand_dims(image, 0)
-    image = data_augmentation_neg(image)
+    image = data_augmentation(image)
     image = tf.squeeze(image, axis=0)
-    #image = tf.clip_by_value(image, 0.0, 1.0)
-    image = tf.image.random_hue(image, 0.18)
-    image = tf.image.random_saturation(image, 0.1, 1.8)
-    image = tf.image.random_brightness(image, 0.3) # 0.05 [i-0.8, i+0.8]
+    # image = tf.clip_by_value(image, 0.0, 1.0)
+
+    # Augmen
+    image = tf.image.random_hue(image, 0.3)
+    image = tf.image.random_saturation(image, 0.1, 1.2)
+    image = tf.image.random_brightness(image, 0.1)  # 0.05 [i-0.8, i+0.8]
     image = tf.clip_by_value(image, 0.0, 1.0)
 
 
@@ -257,7 +259,6 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     ds_train_pos = tf.data.Dataset.from_tensor_slices(train_pos)
     ds_train_pos = ds_train_pos.shuffle(buffer_size=len(train_pos))
     ds_train_pos = ds_train_pos.map(parse_pos_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    ds_train_pos = ds_train_pos.repeat()
 
     '''cv.namedWindow("img", cv.WINDOW_NORMAL)
     for element in ds_train_pos.as_numpy_iterator():
@@ -272,7 +273,13 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     ds_train_neg = tf.data.Dataset.from_tensor_slices(train_neg)
     ds_train_neg = ds_train_neg.shuffle(buffer_size=len(train_neg))
     ds_train_neg = ds_train_neg.map(parse_neg_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    ds_train_neg = ds_train_neg.repeat()
+
+    '''cv.namedWindow("img", cv.WINDOW_NORMAL)
+    for element in ds_train_neg.as_numpy_iterator():
+        print(element[0].max())
+        print(element[0].min())
+        cv.imshow('img', cv.cvtColor(element[0], cv.COLOR_RGB2BGR))
+        cv.waitKey()'''
 
 
     '''
@@ -293,11 +300,12 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_BATCH_SIZE)
     resampled_ds_train.shuffle(buffer_size=len(train_neg)+len(train_pos))
     resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
+    resampled_ds_train = resampled_ds_train.repeat()
 
     resampled_ds_validation = tf.data.experimental.sample_from_datasets([ds_validation_pos, ds_validation_neg])
     resampled_ds_validation = resampled_ds_validation.batch(constants.CLASSIFIER_BATCH_SIZE)
     resampled_ds_validation = resampled_ds_validation.prefetch(tf.data.experimental.AUTOTUNE)
 
-    resampled_steps_per_epoch = np.ceil(2.0 * len(train_neg) / constants.CLASSIFIER_BATCH_SIZE)
+    resampled_steps_per_epoch = np.ceil( len(train_pos) / constants.CLASSIFIER_BATCH_SIZE)
 
     return resampled_ds_train, resampled_ds_validation, resampled_steps_per_epoch
