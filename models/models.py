@@ -1,3 +1,12 @@
+'''
+Модуль структуры моделей CNN
+Автор: Сергей Сисюкин
+e-mail: sergei.sisyukin@gmail.com
+
+Датасет представляет собой шлавную директорию "DataSet", в которой расположены
+директории с множестом сетов Set1...Setn
+'''
+
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
