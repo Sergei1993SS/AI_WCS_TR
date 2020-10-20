@@ -32,3 +32,13 @@ CLASIIFIER_BINARY_LOG_DIR = '/home/sergei/PycharmProjects/AI_WCS_TRAIN/logs/fit/
 '''
 </BINARY CLASSIFIER>
 '''
+
+'''
+<MULTI-LABEL CLASSIFIER
+'''
+CLASSIFIER_MULTI_LABEL_CLASSES = ['glass', 'burn_and_fistula', 'metal_spray', 'pores_and_inclusions', 'crater', 'shell', 'background'] #'cracks', 'undercut'
+
+
+'''
+</MULTI-LABEL CLASSIFIER
+'''

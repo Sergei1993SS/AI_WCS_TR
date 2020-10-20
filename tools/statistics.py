@@ -11,7 +11,6 @@ from tools import constants
 import json
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 
 def get_jsons():
     list_DIR_JSON= os.listdir(constants.PATH_DATASET)
@@ -39,6 +38,8 @@ def parse_stat_json(jsons):
                     for mask in image["Masks"]:
                         dict_stat[mask['class_name']] += 1
 
+    dict_stat.pop('weld')
+
     return dict_stat
 
 def plot_stat(dict_stat):
@@ -54,19 +55,31 @@ def plot_stat(dict_stat):
     data_names = []
     data_values = []
 
+    dict_stat_revers = {'weld': 'Шов', 'glass': 'Шлак', 'burn_and_fistula': "Прожог и свищ",
+                        'metal_spray': "Брызги металла", 'pores_and_inclusions': "Поры и включения",
+                        'cracks': "Трещены",
+                        'crater': "Кратеры", 'shell': "Раковины", 'undercut': "Подрезы"}
 
     for key, velue in dict_stat.items():
-        data_names.append(key)
+        data_names.append(dict_stat_revers[key])
         data_values.append(velue)
 
+
+
     data_values, data_names = zip(*sorted(zip(data_values, data_names)))
+
+    data_names = list(data_names)
+    data_names.reverse()
+    data_values = list(data_values)
+    data_values.reverse()
+
     data_names = [data_names[i] + ' : ' + str(data_values[i]) for i in range(len(data_names))]
 
     dpi = 80
     fig = plt.figure(dpi=dpi, figsize=(512 / dpi, 384 / dpi))
     mpl.rcParams.update({'font.size': 9})
 
-    explode = (0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.025, 0.01)
+    explode = (0.006, 0.012, 0.025, 0.05, 0.1, 0.12, 0.15, 0.5) #(0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.025)
     plt.pie(data_values, labels=data_names, autopct=make_autopct(data_values), explode=explode)
 
     plt.legend(

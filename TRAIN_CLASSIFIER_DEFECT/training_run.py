@@ -1,10 +1,11 @@
 from tools import statistics
+from tools import load_data
 
 
 def run():
     jsons = statistics.get_jsons()
-    dict_stat = statistics.parse_stat_json(jsons)
-    statistics.plot_stat(dict_stat)
+
+    load_data.load_data_set_classifier_defects()
 
 
 if __name__ == '__main__':

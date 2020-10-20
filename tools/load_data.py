@@ -9,11 +9,11 @@ e-mail: sergei.sisyukin@gmail.com
 import tensorflow as tf
 from tools import constants
 import os
-import json
 import numpy as np
 import random
-import tensorflow_addons as tfa
-import cv2 as cv
+from tools import statistics
+import json
+from PIL import Image
 
 resize_and_rescale = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.Resizing(constants.CLASSIFIER_BINARY_IMG_SIZE[0],
@@ -173,7 +173,6 @@ def parse_pos_images_npy_validation(filemame):
 Функция формирования единицы данных со швом для tf.DataSet(.jpg)
 '''
 
-
 def parse_neg_images_jpg_train(filename):
     label = tf.constant([0], dtype=tf.float32)
 
@@ -309,3 +308,76 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     resampled_steps_per_epoch = np.ceil( len(train_pos) / constants.CLASSIFIER_BATCH_SIZE)
 
     return resampled_ds_train, resampled_ds_validation, resampled_steps_per_epoch
+
+def walk_up_folder(path, depth=1):
+    _cur_depth = 1
+    while _cur_depth < depth:
+        path = os.path.dirname(path)
+        _cur_depth += 1
+    return path
+
+def make_label(masks):
+
+    label = np.zeros(shape=(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES)))
+
+    defects = [mask['class_name'] for mask in masks if mask['class_name'] in constants.CLASSIFIER_MULTI_LABEL_CLASSES]
+    defects = list(set(defects))
+    if len(defects) == 0:
+        if 'background' in constants.CLASSIFIER_MULTI_LABEL_CLASSES:
+            defects.append('background')
+        else:
+            print('List defects for make label is empty')
+            exit()
+
+    for defect in defects:
+        label[constants.CLASSIFIER_MULTI_LABEL_CLASSES.index(defect)] = 1.0
+
+
+    return label, defects
+
+
+'''
+Функция бегает по json-ам собирает пути до изображений, создает лейблы 
+и считает изображения с определенным типом дефекта
+'''
+def get_marking(jsons):
+
+    images = []
+    labels = []
+    counter = {}
+
+    for defect in constants.CLASSIFIER_MULTI_LABEL_CLASSES:
+        counter[defect] = 0
+
+    for file in jsons:
+         with open(file, 'r') as j:
+            json_data = json.load(j)
+
+            path_set = walk_up_folder(os.path.split(file)[0], 2)
+            for image in json_data['Images']:
+                path_img = path_set + '/IMAGES/JPEG/' + image['ImageName']
+
+                if os.path.isfile(path_img):
+                    if len(image["Masks"]) > 0:
+                        label, defects = make_label(image["Masks"])
+                        images.append(path_img)
+                        labels.append(label)
+
+                        for defect in defects:
+                            counter[defect] +=1
+
+                    else:
+                        print('Masks images({}) is empty'.format(path_img))
+
+    return images, labels, counter
+
+'''
+load dataset for training classifier_defects
+'''
+def load_data_set_classifier_defects(split_size=0.8, seed = 1):
+
+    jsons = statistics.get_jsons()
+    images, labels, counter = get_marking(jsons)
+    print(counter)
+
+

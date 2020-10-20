@@ -48,7 +48,7 @@ class MainWindow(QWidget):
         print(file_name)
         pixmap = QPixmap(file_name)
         pixmap = pixmap.scaled(self.height(), self.width(), QtCore.Qt.KeepAspectRatio)
-        self.label_image.setPixmap(pixmap)
+        self.label_image.setPixmap(pixmap) 
 
         pre_pixmap = pixmap.copy()
         pre_pixmap = pre_pixmap.scaled(constants.CLASSIFIER_BINARY_IMG_SIZE[0], constants.CLASSIFIER_BINARY_IMG_SIZE[1])
@@ -59,7 +59,9 @@ class MainWindow(QWidget):
 
 
 
-
+        #arr = arr.transpose( (1,0,2))
+        #img = Image.fromarray(arr)
+        #img.show()
         pred = self.model.predict(np.expand_dims(arr, axis=0))
         if pred[0][0]<0.4:
             self.button_res.setText('Вероятность наличия шва: {}%.   ШВА НЕТ!'.format(round(pred[0][0]*100, 3)))
