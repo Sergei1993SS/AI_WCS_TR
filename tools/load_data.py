@@ -259,12 +259,6 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     ds_train_pos = ds_train_pos.shuffle(buffer_size=len(train_pos))
     ds_train_pos = ds_train_pos.map(parse_pos_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    '''cv.namedWindow("img", cv.WINDOW_NORMAL)
-    for element in ds_train_pos.as_numpy_iterator():
-        print(element[0].max())
-        print(element[0].min())
-        cv.imshow('img', cv.cvtColor(element[0], cv.COLOR_RGB2BGR))
-        cv.waitKey()'''
 
     '''
     train negative
@@ -272,13 +266,6 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     ds_train_neg = tf.data.Dataset.from_tensor_slices(train_neg)
     ds_train_neg = ds_train_neg.shuffle(buffer_size=len(train_neg))
     ds_train_neg = ds_train_neg.map(parse_neg_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-    '''cv.namedWindow("img", cv.WINDOW_NORMAL)
-    for element in ds_train_neg.as_numpy_iterator():
-        print(element[0].max())
-        print(element[0].min())
-        cv.imshow('img', cv.cvtColor(element[0], cv.COLOR_RGB2BGR))
-        cv.waitKey()'''
 
 
     '''
@@ -305,7 +292,7 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     resampled_ds_validation = resampled_ds_validation.batch(constants.CLASSIFIER_BATCH_SIZE)
     resampled_ds_validation = resampled_ds_validation.prefetch(tf.data.experimental.AUTOTUNE)
 
-    resampled_steps_per_epoch = np.ceil( len(train_pos) / constants.CLASSIFIER_BATCH_SIZE)
+    resampled_steps_per_epoch = np.ceil(len(train_pos) / constants.CLASSIFIER_BATCH_SIZE)
 
     return resampled_ds_train, resampled_ds_validation, resampled_steps_per_epoch
 
@@ -372,12 +359,140 @@ def get_marking(jsons):
     return images, labels, counter
 
 '''
+Стратифицированное разделение данных на тренировочные и валидационные
+'''
+def split_strat_defects(list_images, labels, split_size, seed):
+
+    dict_defect_idx = {}
+    train_images = []
+    validation_images = []
+    train_labels = []
+    validation_labels = []
+
+    random_obj = random.Random(seed)
+
+
+    for image, label in zip(list_images, labels):
+        defects = [constants.CLASSIFIER_MULTI_LABEL_CLASSES[i] for i in range(len(label)) if label[i]==1]
+        defects.sort()
+        name_defect = '_'.join(defects)
+        if name_defect in dict_defect_idx:
+            dict_defect_idx[name_defect].append(list_images.index(image))
+        else:
+            dict_defect_idx[name_defect] = []
+            dict_defect_idx[name_defect].append(list_images.index(image))
+
+
+    for key, value in dict_defect_idx.items():
+        print('{} : {}'.format(key, len(value)))
+        if len(value)<10:
+            if len(value) < 3:
+                train_images.extend([list_images[idx] for idx in value])
+                train_labels.extend([labels[idx] for idx in value])
+
+            elif len(value) == 3:
+                tr_list = random_obj.sample(value, 2)
+                val_list = [val for val in value if val not in tr_list]
+
+                train_images.extend([list_images[idx] for idx in tr_list])
+                train_labels.extend([labels[idx] for idx in tr_list])
+
+                validation_images.extend([list_images[idx] for idx in val_list])
+                validation_labels.extend([labels[idx] for idx in val_list])
+
+            elif len(value) == 4:
+                tr_list = random_obj.sample(value, 3)
+                val_list = [val for val in value if val not in tr_list]
+
+                train_images.extend([list_images[idx] for idx in tr_list])
+                train_labels.extend([labels[idx] for idx in tr_list])
+
+                validation_images.extend([list_images[idx] for idx in val_list])
+                validation_labels.extend([labels[idx] for idx in val_list])
+
+
+            elif len(value) > 4:
+                tr_list = random_obj.sample(value, len(value)-2)
+                val_list = [val for val in value if val not in tr_list]
+
+                train_images.extend([list_images[idx] for idx in tr_list])
+                train_labels.extend([labels[idx] for idx in tr_list])
+
+                validation_images.extend([list_images[idx] for idx in val_list])
+                validation_labels.extend([labels[idx] for idx in val_list])
+        else:
+            tr_list = random_obj.sample(value, int(len(value) * split_size))
+            val_list = [val for val in value if val not in tr_list]
+
+            train_images.extend([list_images[idx] for idx in tr_list])
+            train_labels.extend([labels[idx] for idx in tr_list])
+
+            validation_images.extend([list_images[idx] for idx in val_list])
+            validation_labels.extend([labels[idx] for idx in val_list])
+
+
+    return train_images, train_labels, validation_images, validation_labels
+
+
+
+def parse_multi_label_train(filename, label):
+
+    #tf_label = tf.constant(label, dtype=tf.float32)
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
+
+    return image, label
+
+def parse_multi_label_validation(filename, label):
+
+    #tf_label = tf.constant(label, dtype=tf.float32)
+    image = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image)
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
+
+    return image, label
+
+'''
 load dataset for training classifier_defects
 '''
-def load_data_set_classifier_defects(split_size=0.8, seed = 1):
+def load_data_set_classifier_defects(split_size=0.9, seed = 1):
 
     jsons = statistics.get_jsons()
     images, labels, counter = get_marking(jsons)
-    print(counter)
+    train_images, train_labels, validation_images, validation_labels = split_strat_defects(images, labels, split_size, seed)
+
+    ################# train ds #################
+    ds_train = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
+    ds_train = ds_train.shuffle(buffer_size=len(train_images))
+    ds_train = ds_train.map(parse_multi_label_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    ds_train = ds_train.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
+    ds_train = ds_train.prefetch(tf.data.experimental.AUTOTUNE)
+    ds_train = ds_train.repeat()
+    ############################################
+
+    #####################validation ds###########
+    ds_validation = tf.data.Dataset.from_tensor_slices((validation_images, validation_labels))
+    ds_validation = ds_validation.map(parse_multi_label_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    ds_validation = ds_validation.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
+    ds_validation = ds_validation.prefetch(tf.data.experimental.AUTOTUNE)
+
+    steps_per_epoch = np.ceil(len(train_images) / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
+
+    '''for element in ds_train.as_numpy_iterator():
+            img, label = element
+            print(img.shape)
+            print(label.shape)
+            print(label)'''
+
+    return ds_train, ds_validation, steps_per_epoch
+
+
+
+
 
 
