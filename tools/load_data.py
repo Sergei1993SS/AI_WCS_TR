@@ -13,7 +13,7 @@ import numpy as np
 import random
 from tools import statistics
 import json
-from PIL import Image
+import cv2 as cv
 
 resize_and_rescale = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.Resizing(constants.CLASSIFIER_BINARY_IMG_SIZE[0],
@@ -22,7 +22,7 @@ resize_and_rescale = tf.keras.Sequential([
 
 data_augmentation = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-        tf.keras.layers.experimental.preprocessing.RandomRotation(0.1),
+        #tf.keras.layers.experimental.preprocessing.RandomRotation(0.05),
 
         ]) #tf.keras.layers.experimental.preprocessing.RandomContrast((0.1, 0.7))
 
@@ -358,6 +358,7 @@ def get_marking(jsons):
 
     return images, labels, counter
 
+
 '''
 Стратифицированное разделение данных на тренировочные и валидационные
 '''
@@ -437,17 +438,25 @@ def split_strat_defects(list_images, labels, split_size, seed):
 
 def parse_multi_label_train(filename, label):
 
-    #tf_label = tf.constant(label, dtype=tf.float32)
+
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
     image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
 
+    image = tf.expand_dims(image, 0)
+    image = data_augmentation(image)
+    image = tf.squeeze(image, axis=0)
+
+    # Augmen
+    image = tf.image.random_brightness(image, 0.1)  # 0.05 [i-0.8, i+0.8]
+    image = tf.clip_by_value(image, 0.0, 1.0)
+
     return image, label
 
 def parse_multi_label_validation(filename, label):
 
-    #tf_label = tf.constant(label, dtype=tf.float32)
+
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
@@ -483,11 +492,12 @@ def load_data_set_classifier_defects(split_size=0.9, seed = 1):
 
     steps_per_epoch = np.ceil(len(train_images) / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
 
-    '''for element in ds_train.as_numpy_iterator():
+    '''cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
+    for element in ds_train.as_numpy_iterator():
             img, label = element
-            print(img.shape)
-            print(label.shape)
-            print(label)'''
+            for i in range(len(img)):
+                cv.imshow('test', cv.cvtColor(img[i], code=cv.COLOR_RGB2BGR))
+                cv.waitKey()'''
 
     return ds_train, ds_validation, steps_per_epoch
 

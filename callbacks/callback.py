@@ -28,10 +28,10 @@ class Classifier_Defect_CallBack(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
 
-        if(logs.get('val_acc')>self.current_val_acc):
+        if(logs.get('val_f1')>self.current_val_acc):
 
             self.model.save(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects.h5')
-            self.current_val_acc = logs.get('val_acc')
+            self.current_val_acc = logs.get('val_f1')
             print()
             print("Model saving with val_acc -  {} %".format(self.current_val_acc*100.0))
             print()

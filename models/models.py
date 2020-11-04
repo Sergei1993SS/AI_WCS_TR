@@ -12,7 +12,7 @@ from tensorflow.keras import layers
 from tensorflow.keras import Model
 import tensorflow_hub as hub
 from tools import constants
-from tensorflow.keras.applications import VGG16, ResNet50, MobileNetV2, DenseNet121
+from tensorflow.keras.applications import VGG16, ResNet50, DenseNet121
 
 
 # function for creating a projected inception module
@@ -32,32 +32,21 @@ def inception_module(layer_in, f1, f2_in, f2_out, f3_in, f3_out, f4_out):
     layer_out = layers.concatenate([conv1, conv3, conv5, pool], axis=-1)
     return layer_out
 
-def get_pretrain_model_inceptionV3():
-    model = tf.keras.Sequential([
-        tf.keras.layers.InputLayer(input_shape=(constants.CLASSIFIER_BINARY_IMG_SIZE[0], constants.CLASSIFIER_BINARY_IMG_SIZE[1], 3)),
-        hub.KerasLayer("https://tfhub.dev/google/imagenet/inception_v3/classification/4", trainable=True),
-        tf.keras.layers.Dropout(rate=0.2),
-        tf.keras.layers.Dense(1, kernel_regularizer=tf.keras.regularizers.l2(0.0001), activation=tf.nn.sigmoid)
-    ])
-
-    model.build([None, constants.CLASSIFIER_BINARY_IMG_SIZE[0], constants.CLASSIFIER_BINARY_IMG_SIZE[1], 3])  # Batch input shape.
-    return model
-
-
 
 def get_pretrain_model_VGG16():
 
-    base_model = VGG16(input_shape=(constants.CLASSIFIER_BINARY_IMG_SIZE[0], constants.CLASSIFIER_BINARY_IMG_SIZE[1], 3), include_top=False)
+    base_model = VGG16(input_shape=(constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], 3), include_top=False)
     for layer in base_model.layers:
-        if(layer.name != 'block5_conv3' and layer.name != 'block5_pool' and layer.name != 'block5_conv2' and layer.name != 'block5_conv1'):
-            layer.trainable = False
-        else:
+        if(layer.name == 'block5_conv3' or layer.name == 'block5_conv2'):
             layer.trainable = True
+        else:
+            layer.trainable = False
     #input = layers.InputLayer(input_shape=(constants.CLASSIFIER_BINARY_IMG_SIZE[0], constants.CLASSIFIER_BINARY_IMG_SIZE[1], 3))
     x = base_model.output
+    x = layers.Conv2D(256, [1, 1], activation=tf.nn.relu)(x)
+    x = layers.MaxPooling2D()(x)
     x = layers.Flatten()(x)
-    x = layers.Dropout(0.5)(x)
-    predictions = layers.Dense(1, activation="sigmoid")(x)
+    predictions = layers.Dense(7, activation=tf.nn.sigmoid)(x)
     model_final = Model(base_model.input, predictions, name='classifier_weld_model')
     return model_final
 
@@ -102,8 +91,8 @@ def get_model_classifier(shape = None):
 def get_model_multi_label_classifier(shape=None):
     Input = layers.Input(shape=shape)
 
-    layer = layers.Conv2D(16, [7, 7], padding='same', activation=tf.nn.relu, name='C1')(Input)
-    layer = layers.MaxPooling2D(pool_size=(3, 3), name='max_pool1')(layer)
+    layer = layers.Conv2D(16, [5, 5], padding='same', activation=tf.nn.relu, name='C1')(Input)
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='max_pool1')(layer)
     layer = layers.Dropout(0.1, name='drop1')(layer)
 
     layer = layers.Conv2D(32, [5, 5], padding='same', activation=tf.nn.relu, name='C2')(layer)
@@ -116,26 +105,27 @@ def get_model_multi_label_classifier(shape=None):
     pool_start = layers.MaxPooling2D(pool_size=(3, 3), name='branch_pool')(layer)
 
     layer = layers.Conv2D(64, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv1')(pool_start)
-    layer = layers.Conv2D(192, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv2')(layer)
-    layer = layers.MaxPooling2D(pool_size=(3, 3), name='inception_max_pool1')(layer)
+    layer = layers.Conv2D(128, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv2')(layer)
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='inception_max_pool1')(layer)
 
-    incep_module = inception_module(layer, 64, 96, 128, 16, 32, 32)
-    incep_module = layers.Dropout(0.1, name='inception_branch_drop1')(incep_module)
+    layer = layers.Conv2D(200, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv3')(layer)
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='inception_max_pool2')(layer)
 
-    layer_concat = layers.Conv2D(128, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv1')(pool_start)
-    layer_concat = layers.MaxPooling2D(pool_size=(3, 3), name='resnet_branch_max_pool1')(layer_concat)
-    layer_concat = layers.Conv2D(256, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv2')(layer_concat)
+    #incep_module = inception_module(layer, 64, 32, 64, 16, 32, 32)
+    #incep_module = layers.Dropout(0.1, name='inception_branch_drop1')(incep_module)
 
-    avg = layers.Average()([incep_module, layer_concat])
+    #layer_concat = layers.Conv2D(96, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv1')(pool_start)
+    #layer_concat = layers.MaxPooling2D(pool_size=(3, 3), name='resnet_branch_max_pool1')(layer_concat)
+    #layer_concat = layers.Conv2D(192, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv2')(layer_concat)
 
-    layer_fin = layers.Dropout(0.15)(avg)
-    layer_fin = layers.MaxPooling2D(pool_size=(2, 2))(layer_fin)
-    layer_fin = layers.Conv2D(256, [1, 1], padding='valid', activation=tf.nn.relu)(layer_fin)
-    layer_fin = layers.Conv2D(512, [3, 3], padding='valid', activation=tf.nn.relu)(layer_fin)
+    #avg = layers.Average()([incep_module, layer_concat])
 
-    flatten = layers.Flatten()(layer_fin)
+    layer = layers.Dropout(0.15)(layer)
+    layer = layers.Conv2D(256, [3, 3], padding='same', activation=tf.nn.relu)(layer)
+
+    flatten = layers.Flatten()(layer)
     layer = layers.Dropout(0.3)(flatten)
-
+    #layer = layers.Dense(14, activation=tf.nn.relu)(layer)
     layer = layers.Dense(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES), activation=tf.nn.sigmoid)(layer)
 
     return Model(Input, layer)
