@@ -1,37 +1,25 @@
-import tensorflow as tf
-import tensorflow_addons as tfa
-from tools import constants
-
-def loss_weld_defect(y, y_hat):
+from tensorflow.keras import backend as K
 
 
-    '''background_y = tf.slice(y, [0, len(constants.CLASSIFIER_MULTI_LABEL_CLASSES)-1], [-1, 1])
-
-    inv_y = tf.equal(background_y, 0)
-    non_background = tf.cast(inv_y, dtype=tf.float32)
-
-    #defects_y_hat = tf.slice(y_hat, [0, 0], [-1, len(constants.CLASSIFIER_MULTI_LABEL_CLASSES) - 1])
-    #defects_y = tf.slice(y, [0, 0], [-1, len(constants.CLASSIFIER_MULTI_LABEL_CLASSES) - 1])
-
-    shape = tf.shape(non_background)
-    loss_defects_binary_crossentripy = tf.multiply(tf.reshape(non_background, [shape[0]]), tf.losses.binary_crossentropy(y, y_hat, from_logits=False))
-
-    loss_defect_catecorical_crossentropy = tf.multiply(tf.reshape(background_y, [shape[0]]), tf.losses.categorical_crossentropy(y, tf.nn.softmax(y_hat)))
-
-    loss = loss_defect_catecorical_crossentropy + loss_defects_binary_crossentripy
-
-    inv_y = None
-    background_y = None
-    non_background = None
-    shape = None
-    loss_defects_binary_crossentripy = None
-    loss_defect_catecorical_crossentropy = None'''
+def recall(y_true, y_pred):
+    true_positives = K.sum(K.clip(y_true * y_pred, 0, 1))
+    possible_positives = K.sum(y_true)
+    recall_keras = true_positives / (possible_positives + K.epsilon())
+    possible_positives = None
+    true_positives = None
+    return recall_keras
 
 
-    return tf.losses.binary_crossentropy(y, y_hat, from_logits=False)
+def precision(y_true, y_pred):
+    true_positives = K.sum(K.clip(y_true * y_pred, 0, 1))
+    predicted_positives = K.sum(K.clip(y_pred, 0, 1))
+    precision_keras = true_positives / (predicted_positives + K.epsilon())
+    true_positives = None
+    predicted_positives = None
+    return precision_keras
 
 
-def hamming_loss(y_true, y_pred):
-
-    loss = tfa.metrics.hamming.hamming_loss_fn(y_true, y_pred, threshold=0.8, mode='multilabel')
-    return loss
+def f1(y_true, y_pred):
+    p = precision(y_true, y_pred)
+    r = recall(y_true, y_pred)
+    return 1 - (2 * ((p * r) / (p + r + K.epsilon())))

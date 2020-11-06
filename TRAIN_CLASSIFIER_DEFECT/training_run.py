@@ -23,9 +23,10 @@ def run():
     strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
 
     with strategy.scope():
-        classifier_model =  models.get_model_multi_label_classifier(
-                        shape=(constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], 3))#models.get_pretrain_model_VGG16()
+        classifier_model = models.get_model_multi_label_classifier(
+                        shape=(constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], 3))
 
+        #classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects_r67_p73_f69.h5', compile=False)
         classifier_model.summary()
 
 
@@ -38,12 +39,28 @@ def run():
                                                               write_images=False, profile_batch=0)
 
         optimizer = tf.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999)
-        optimizerRMS = tf.optimizers.RMSprop()
+        #optimizerRMS = tf.optimizers.RMSprop()
         optimizerNAdam = tf.optimizers.Nadam()
-        accuracy = tf.metrics.BinaryAccuracy(threshold=0.7)
+        #accuracy = tf.metrics.BinaryAccuracy(threshold=0.7)
+        loss = tf.losses.BinaryCrossentropy()
 
-        classifier_model.compile(optimizer=optimizer, loss=loss.loss_weld_defect, metrics=[accuracy, metrics.recall, metrics.precision, metrics.f1],
-                                 run_eagerly=False)
+        classifier_model.compile(optimizer=optimizer, loss=loss, metrics=[metrics.f1,
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=0),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=0),
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=1),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=1),
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=2),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=2),
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=3),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=3),
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=4),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=4),
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=5),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=5),
+                                                                          tf.metrics.Recall(thresholds=0.5, class_id=6),
+                                                                          tf.metrics.Precision(thresholds=0.5, class_id=6),
+                                                                            ],
+                                                                          run_eagerly=False)
 
         history = classifier_model.fit(
             ds_train,

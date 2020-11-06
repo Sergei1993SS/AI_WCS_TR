@@ -15,6 +15,7 @@ from tools import constants
 from tensorflow.keras.applications import VGG16, ResNet50, DenseNet121
 
 
+
 # function for creating a projected inception module
 def inception_module(layer_in, f1, f2_in, f2_out, f3_in, f3_out, f4_out):
     # 1x1 conv
@@ -41,10 +42,8 @@ def get_pretrain_model_VGG16():
             layer.trainable = True
         else:
             layer.trainable = False
-    #input = layers.InputLayer(input_shape=(constants.CLASSIFIER_BINARY_IMG_SIZE[0], constants.CLASSIFIER_BINARY_IMG_SIZE[1], 3))
+
     x = base_model.output
-    x = layers.Conv2D(256, [1, 1], activation=tf.nn.relu)(x)
-    x = layers.MaxPooling2D()(x)
     x = layers.Flatten()(x)
     predictions = layers.Dense(7, activation=tf.nn.sigmoid)(x)
     model_final = Model(base_model.input, predictions, name='classifier_weld_model')
@@ -95,33 +94,30 @@ def get_model_multi_label_classifier(shape=None):
     layer = layers.MaxPooling2D(pool_size=(2, 2), name='max_pool1')(layer)
     layer = layers.Dropout(0.1, name='drop1')(layer)
 
-    layer = layers.Conv2D(32, [5, 5], padding='same', activation=tf.nn.relu, name='C2')(layer)
-    layer = layers.Dropout(0.1, name='drop2')(layer)
-    layer = layers.MaxPooling2D(pool_size=(2, 2), name='max_pool2')(layer)
-
-    layer = layers.Conv2D(64, [3, 3], padding='same', activation=tf.nn.relu, name='C3')(layer)
-
 
     pool_start = layers.MaxPooling2D(pool_size=(3, 3), name='branch_pool')(layer)
 
     layer = layers.Conv2D(64, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv1')(pool_start)
-    layer = layers.Conv2D(128, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv2')(layer)
-    layer = layers.MaxPooling2D(pool_size=(2, 2), name='inception_max_pool1')(layer)
+    layer = layers.Dropout(0.3, name='drop3')(layer)
 
-    layer = layers.Conv2D(200, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv3')(layer)
-    layer = layers.MaxPooling2D(pool_size=(2, 2), name='inception_max_pool2')(layer)
+    incep_module = inception_module(layer, 32, 32, 32, 16, 32, 32)
+    incep_module = layers.Dropout(0.1, name='inception_branch_drop1')(incep_module)
 
-    #incep_module = inception_module(layer, 64, 32, 64, 16, 32, 32)
-    #incep_module = layers.Dropout(0.1, name='inception_branch_drop1')(incep_module)
+    layer_concat = layers.Conv2D(128, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv1')(pool_start)
+    avg = layers.Average()([incep_module, layer_concat])
 
-    #layer_concat = layers.Conv2D(96, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv1')(pool_start)
-    #layer_concat = layers.MaxPooling2D(pool_size=(3, 3), name='resnet_branch_max_pool1')(layer_concat)
-    #layer_concat = layers.Conv2D(192, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv2')(layer_concat)
 
-    #avg = layers.Average()([incep_module, layer_concat])
+    layer = layers.Dropout(0.25)(avg)
+    layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
+    layer = layers.Conv2D(156, [3, 3], padding='same', activation=tf.nn.relu)(layer)
 
-    layer = layers.Dropout(0.15)(layer)
+    layer = layers.Dropout(0.25)(layer)
+    layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
     layer = layers.Conv2D(256, [3, 3], padding='same', activation=tf.nn.relu)(layer)
+
+    layer = layers.Dropout(0.25)(layer)
+    layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
+    layer = layers.Conv2D(356, [3, 3], padding='same', activation=tf.nn.relu)(layer)
 
     flatten = layers.Flatten()(layer)
     layer = layers.Dropout(0.3)(flatten)

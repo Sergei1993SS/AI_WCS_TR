@@ -450,6 +450,8 @@ def parse_multi_label_train(filename, label):
 
     # Augmen
     image = tf.image.random_brightness(image, 0.1)  # 0.05 [i-0.8, i+0.8]
+    noise = tf.random.normal(tf.shape(image), mean=0, stddev=0.05)
+    image = image + noise
     image = tf.clip_by_value(image, 0.0, 1.0)
 
     return image, label
@@ -471,6 +473,7 @@ def load_data_set_classifier_defects(split_size=0.9, seed = 1):
 
     jsons = statistics.get_jsons()
     images, labels, counter = get_marking(jsons)
+    print(counter)
     train_images, train_labels, validation_images, validation_labels = split_strat_defects(images, labels, split_size, seed)
 
     ################# train ds #################
@@ -493,7 +496,7 @@ def load_data_set_classifier_defects(split_size=0.9, seed = 1):
     steps_per_epoch = np.ceil(len(train_images) / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
 
     '''cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
-    for element in ds_train.as_numpy_iterator():
+    for element in ds_validation.as_numpy_iterator():
             img, label = element
             for i in range(len(img)):
                 cv.imshow('test', cv.cvtColor(img[i], code=cv.COLOR_RGB2BGR))
