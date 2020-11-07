@@ -16,7 +16,7 @@ def run():
 
     shutil.rmtree(constants.CLASSIFIER_MULTI_LABEL_LOG_DIR, ignore_errors=True)
 
-    ds_train, ds_validation, steps_per_epoch = load_data.load_data_set_classifier_defects(split_size=constants.CLASSIFIER_MULTI_LABEL_SPLIT,
+    ds_train, ds_validation, steps_per_epoch = load_data.load_data_set_balanced_classifier_defects(split_size=constants.CLASSIFIER_MULTI_LABEL_SPLIT,
                                                                                           seed=constants.CLASSIFIER_MULTI_LABEL_RANDOM_SEED)
     tf.keras.backend.clear_session()
 
