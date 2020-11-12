@@ -22,7 +22,7 @@ resize_and_rescale = tf.keras.Sequential([
 
 data_augmentation = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-        #tf.keras.layers.experimental.preprocessing.RandomRotation(0.05),
+        tf.keras.layers.experimental.preprocessing.RandomRotation(0.02, fill_mode='constant'),
 
         ]) #tf.keras.layers.experimental.preprocessing.RandomContrast((0.1, 0.7))
 
@@ -629,10 +629,16 @@ def split_balanced_defects(dict_images, dict_labels, split_size, seed):
            shell_images_train, shell_labels_train, shell_images_validation, shell_labels_validation, \
            background_images_train, background_labels_train, background_images_validation, background_labels_validation
 
+def make_ds_val(images, labels):
+    ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    ds = ds.map(parse_multi_label_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    return ds
+
 def make_ds(images, labels):
     ds = tf.data.Dataset.from_tensor_slices((images, labels))
     ds = ds.shuffle(buffer_size=len(images))
     ds = ds.map(parse_multi_label_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds = ds.repeat()
     return ds
 
 def load_data_set_balanced_classifier_defects(split_size=0.9, seed=1):
@@ -649,51 +655,51 @@ def load_data_set_balanced_classifier_defects(split_size=0.9, seed=1):
     background_images_train, background_labels_train, background_images_validation, background_labels_validation = split_balanced_defects(images, labels, split_size, seed)
 
     ds_train_glass = make_ds(glass_images_train, glass_labels_train)
-    ds_val_glass = make_ds(glass_images_validation, glass_labels_validation)
+    ds_val_glass = make_ds_val(glass_images_validation, glass_labels_validation)
 
     ds_train_burn_and_fistula = make_ds(burn_and_fistula_images_train, burn_and_fistula_labels_train)
-    ds_val_burn_and_fistula = make_ds(burn_and_fistula_images_validation, burn_and_fistula_labels_validation)
+    ds_val_burn_and_fistula = make_ds_val(burn_and_fistula_images_validation, burn_and_fistula_labels_validation)
 
     ds_train_metal_spray = make_ds(metal_spray_images_train, metal_spray_labels_train)
-    ds_val_metal_spray = make_ds(metal_spray_images_validation, metal_spray_labels_validation)
+    ds_val_metal_spray = make_ds_val(metal_spray_images_validation, metal_spray_labels_validation)
 
     ds_train_pores_and_inclusions = make_ds(pores_and_inclusions_images_train, pores_and_inclusions_labels_train)
-    ds_val_pores_and_inclusions = make_ds(pores_and_inclusions_images_validation, pores_and_inclusions_labels_validation)
+    ds_val_pores_and_inclusions = make_ds_val(pores_and_inclusions_images_validation, pores_and_inclusions_labels_validation)
 
     ds_train_crater = make_ds(crater_images_train, crater_labels_train)
-    ds_val_crater = make_ds(crater_images_validation, crater_labels_validation)
+    ds_val_crater = make_ds_val(crater_images_validation, crater_labels_validation)
 
     ds_train_shell = make_ds(shell_images_train, shell_labels_train)
-    ds_val_shell = make_ds(shell_images_validation, shell_labels_validation)
+    ds_val_shell = make_ds_val(shell_images_validation, shell_labels_validation)
 
     ds_train_background = make_ds(background_images_train, background_labels_train)
-    ds_val_background = make_ds(background_images_validation, background_labels_validation)
+    ds_val_background = make_ds_val(background_images_validation, background_labels_validation)
 
 
     ################# train ds #################
     resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_glass, ds_train_burn_and_fistula, ds_train_metal_spray,
                                                                     ds_train_pores_and_inclusions, ds_train_crater,
-                                                                    ds_train_shell, ds_train_background], weights=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+                                                                    ds_train_shell, ds_train_background], weights=[0.14, 0.14, 0.14, 0.14, 0.14, 0.14, 0.16])
 
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
     resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
-    resampled_ds_train = resampled_ds_train.repeat()
+    #resampled_ds_train = resampled_ds_train.repeat()
     ############################################
 
     #####################validation ds###########
     resampled_ds_val = tf.data.experimental.sample_from_datasets(
         [ds_val_glass, ds_val_burn_and_fistula, ds_val_metal_spray,
          ds_val_pores_and_inclusions, ds_val_crater,
-         ds_val_shell, ds_val_background], weights=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+         ds_val_shell, ds_val_background], weights=[0.14, 0.14, 0.14, 0.14, 0.14, 0.14, 0.16])
 
     resampled_ds_val = resampled_ds_val.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
     resampled_ds_val = resampled_ds_val.prefetch(tf.data.experimental.AUTOTUNE)
-    resampled_ds_val = resampled_ds_val.repeat()
+    #resampled_ds_val = resampled_ds_val.repeat()
 
     min_quantity_samples = min(len(glass_images_train), len(burn_and_fistula_images_train), len(metal_spray_images_train), len(pores_and_inclusions_images_train),
                             len(crater_images_train), len(shell_images_train), len(background_images_train))
 
-    resampled_steps_per_epoch = np.ceil(min_quantity_samples / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
+    resampled_steps_per_epoch = np.ceil(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES)*min_quantity_samples / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
 
     '''print(min_quantity_samples)
     cv.namedWindow('test', flags=cv.WINDOW_NORMAL)

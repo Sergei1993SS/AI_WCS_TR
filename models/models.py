@@ -121,7 +121,6 @@ def get_model_multi_label_classifier(shape=None):
 
     flatten = layers.Flatten()(layer)
     layer = layers.Dropout(0.3)(flatten)
-    #layer = layers.Dense(14, activation=tf.nn.relu)(layer)
     layer = layers.Dense(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES), activation=tf.nn.sigmoid)(layer)
 
     return Model(Input, layer)
