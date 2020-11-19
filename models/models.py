@@ -87,40 +87,54 @@ def get_model_classifier(shape = None):
     return Model(Input, layer)
 
 
-def get_model_multi_label_classifier(shape=None):
+
+def get_model_multi_label_classifier_XXX(shape=None):
     Input = layers.Input(shape=shape)
 
-    layer = layers.Conv2D(16, [5, 5], padding='same', activation=tf.nn.relu, name='C1')(Input)
-    layer = layers.MaxPooling2D(pool_size=(2, 2), name='max_pool1')(layer)
-    layer = layers.Dropout(0.1, name='drop1')(layer)
+
+    layer = layers.Conv2D(6, [5, 5], padding='valid', activation=tf.nn.relu, name='C1')(Input)
+    #layer = layers.MaxPooling2D(pool_size=(2, 2), name='max_pool1')(layer)
 
 
-    pool_start = layers.MaxPooling2D(pool_size=(3, 3), name='branch_pool')(layer)
+    pool_start = layers.MaxPooling2D(pool_size=(2, 2), name='branch_pool')(layer)
 
-    layer = layers.Conv2D(64, [3, 3], padding='same', activation=tf.nn.relu, name='inception_branch_conv1')(pool_start)
-    layer = layers.Dropout(0.3, name='drop3')(layer)
+    layer = layers.Conv2D(12, [3, 3], padding='valid', activation=tf.nn.relu, name='inception_branch_conv1')(pool_start) #
+    #layer = layers.Dropout(0.3, name='drop3')(layer)
 
-    incep_module = inception_module(layer, 32, 32, 32, 16, 32, 32)
+    incep_module = inception_module(layer, 3, 3, 6, 3, 6, 3)
     incep_module = layers.Dropout(0.1, name='inception_branch_drop1')(incep_module)
 
-    layer_concat = layers.Conv2D(128, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv1')(pool_start)
+    layer_concat = layers.Conv2D(10, [3, 3], padding='same', activation=tf.nn.relu, name='resnet_branch_conv1')(pool_start)
+    layer_concat = layers.Conv2D(incep_module.shape[3], [3, 3], padding='valid', activation=tf.nn.relu, name='resnet_branch_conv2')(layer_concat)
+
+    resize = layers.experimental.preprocessing.Resizing(height=layer_concat.shape[1], width=layer_concat.shape[2])(Input)
     avg = layers.Average()([incep_module, layer_concat])
+    concat = layers.concatenate([avg, resize])
 
 
-    layer = layers.Dropout(0.25)(avg)
-    layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
-    layer = layers.Conv2D(156, [3, 3], padding='same', activation=tf.nn.relu)(layer)
+    #layer = layers.Dropout(0.25)(concat)
+    #layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
+    layer = layers.Conv2D(30, [3, 3], padding='valid', activation=tf.nn.relu, name='post_concat_conv1')(concat)
 
-    layer = layers.Dropout(0.25)(layer)
-    layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
-    layer = layers.Conv2D(256, [3, 3], padding='same', activation=tf.nn.relu)(layer)
+    #layer = layers.Dropout(0.25)(layer)
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='post_concat_pool1')(layer)
+    layer = layers.Conv2D(40, [3, 3], padding='valid', activation=tf.nn.relu,  name='post_concat_conv2')(layer)
 
-    layer = layers.Dropout(0.25)(layer)
-    layer = layers.MaxPooling2D(pool_size=(2, 2))(layer)
-    layer = layers.Conv2D(356, [3, 3], padding='same', activation=tf.nn.relu)(layer)
+    #layer = layers.Dropout(0.25)(layer)
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='post_concat_pool2')(layer)
+    layer = layers.Conv2D(60, [3, 3], padding='valid', activation=tf.nn.relu, name='post_concat_conv3')(layer)
+
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='post_concat_pool3')(layer)
+    layer = layers.Conv2D(80, [3, 3], padding='valid', activation=tf.nn.relu, name='post_concat_conv4')(layer)
+
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='post_concat_pool4')(layer)
+    layer = layers.Conv2D(100, [3, 3], padding='valid', activation=tf.nn.relu, name='post_concat_conv5')(layer)
+
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='post_concat_pool5')(layer)
+    layer = layers.Conv2D(120, [3, 3], padding='valid', activation=tf.nn.relu, name='post_concat_conv6')(layer)
 
     flatten = layers.Flatten()(layer)
     layer = layers.Dropout(0.3)(flatten)
-    layer = layers.Dense(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES), activation=tf.nn.sigmoid)(layer)
+    layer = layers.Dense(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES), activation=tf.nn.sigmoid, name='output')(layer)
 
     return Model(Input, layer)
