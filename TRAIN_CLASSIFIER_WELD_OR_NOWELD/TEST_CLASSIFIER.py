@@ -7,6 +7,7 @@ import os
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+from tools import load_data
 
 from PyQt5.QtWidgets import QMainWindow, QTextEdit, QAction, QFileDialog, QApplication,QLabel,QPushButton, QVBoxLayout,QWidget
 from PyQt5 import QtCore, QtGui
@@ -106,9 +107,51 @@ if __name__ == '__main__':
     #run()
     #subprocess.Popen(["xdg-open /select", "/home/sergei/DataSet"])
 
-    app = QApplication([])
+    #app = QApplication([])
 
-    mw = MainWindow()
-    mw.show()
+    #mw = MainWindow()
+    #mw.show()
 
-    app.exec()
+    #app.exec()
+    path = '/home/sergei/DataSet/875_set4/IMAGES/JPEG'
+    images = os.listdir(path)
+    images = [path+'/'+image for image in images]
+    print(images)
+
+    model = tf.keras.models.load_model(constants.CLASSIFIER_BINARY_SAVE_PATH + '/classifier_weld0.989.h5', compile=False)
+    model.summary()
+    cv.namedWindow('valid_pos', cv.WINDOW_NORMAL)
+    counter_global = 0
+    counter_local = 0
+
+    list_NO_weld = [constants.CLASSIFIER_BINARY_PATH_NO_WELD + file for file in
+                    os.listdir(constants.CLASSIFIER_BINARY_PATH_NO_WELD)]
+    list_YES_weld = load_data.make_list_yes_weld(constants.CLASIIFIER_MODE_LOAD)
+    dict_score = {'all_images': 13112, 'false_negative': 50, 'false_positive': 173}
+
+    for pim in list_NO_weld:
+        img_out = cv.imread(pim)
+
+        img = cv.resize(img_out, dsize=(constants.CLASSIFIER_BINARY_IMG_SIZE[1], constants.CLASSIFIER_BINARY_IMG_SIZE[0]))
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = img / 255.0
+        pred = model.predict(np.expand_dims(img, axis=0))
+        dict_score['all_images'] = dict_score['all_images']+1
+        print(dict_score)
+
+        if pred[0][0]>0.25:
+            dict_score['false_negative'] = dict_score['false_negative']+1
+
+    for pim in list_YES_weld:
+        img_out = cv.imread(pim)
+
+        img = cv.resize(img_out, dsize=(constants.CLASSIFIER_BINARY_IMG_SIZE[1], constants.CLASSIFIER_BINARY_IMG_SIZE[0]))
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = img / 255.0
+        pred = model.predict(np.expand_dims(img, axis=0))
+        dict_score['all_images'] = dict_score['all_images']+1
+        print(dict_score)
+        if pred[0][0]<0.25:
+            dict_score['false_positive'] = dict_score['false_positive']+1
+
+    print(dict_score)

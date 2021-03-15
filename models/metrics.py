@@ -1,25 +1,29 @@
-import tensorflow as tf
-import tensorflow_addons as tfa
-from tools import constants
 from tensorflow.keras import backend as K
+import tensorflow as tf
 
-
-def recall(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    recall_keras = true_positives / (possible_positives + K.epsilon())
-    possible_positives = None
-    true_positives = None
-    return recall_keras
 
 
 def precision(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision_keras = true_positives / (predicted_positives + K.epsilon())
-    true_positives = None
-    predicted_positives = None
+    r_y_pred = K.round(y_pred)
+    TP = tf.cast(tf.math.count_nonzero(y_true * r_y_pred), dtype=y_true.dtype)
+
+    FP = tf.cast(tf.math.count_nonzero(r_y_pred * (y_true - 1.0)), dtype=y_true.dtype)
+
+    precision_keras = TP / (TP + FP + K.epsilon())
+    TP = None
+    FP = None
     return precision_keras
+
+
+def recall(y_true, y_pred):
+    r_y_pred = K.round(y_pred)
+    TP = tf.cast(tf.math.count_nonzero(y_true * r_y_pred), dtype=y_true.dtype)
+    FN = tf.cast(tf.math.count_nonzero((r_y_pred - 1.0) * y_true), dtype=y_true.dtype)
+
+    recall_keras = TP / (TP + FN + K.epsilon())
+    TP = None
+    FN = None
+    return recall_keras
 
 
 def f1(y_true, y_pred):

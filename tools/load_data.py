@@ -15,16 +15,19 @@ from tools import statistics
 import json
 import cv2 as cv
 
-resize_and_rescale = tf.keras.Sequential([
-        tf.keras.layers.experimental.preprocessing.Resizing(constants.CLASSIFIER_BINARY_IMG_SIZE[0],
-                                                            constants.CLASSIFIER_BINARY_IMG_SIZE[1]),
-        tf.keras.layers.experimental.preprocessing.Rescaling(1. / constants.CLASSIFIER_BINARY_NORNALIZE)])
 
 data_augmentation = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
+        tf.keras.layers.experimental.preprocessing.RandomRotation(0.1, fill_mode='constant'),
+        tf.keras.layers.experimental.preprocessing.RandomContrast((0.1, 0.7))
+        ]) #
+
+data_augmentation_weld = tf.keras.Sequential([
+        tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
         tf.keras.layers.experimental.preprocessing.RandomRotation(0.02, fill_mode='constant'),
 
-        ]) #tf.keras.layers.experimental.preprocessing.RandomContrast((0.1, 0.7))
+        tf.keras.layers.experimental.preprocessing.RandomContrast((0.5, 1.2))
+        ])
 
 data_augmentation_neg = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
@@ -112,14 +115,16 @@ def parse_pos_images_jpg_train(filename):
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
 
     image = tf.expand_dims(image, 0)
-    image = data_augmentation(image)
+    image = data_augmentation_weld(image)
     image = tf.squeeze(image, axis=0)
-    #image = tf.clip_by_value(image, 0.0, 1.0)
 
     #Augmen
-    image = tf.image.random_hue(image, 0.3)
-    image = tf.image.random_saturation(image, 0.1, 1.2)
-    image = tf.image.random_brightness(image, 0.1) #0.05 [i-0.8, i+0.8]
+    #image = tf.image.random_hue(image, 0.15)
+    #image = tf.image.random_saturation(image, 0.1, 1.2)
+    #image = tf.image.random_contrast(image, 0.5, 1.2)
+    noise = tf.random.normal(shape=tf.shape(image), mean=0, stddev=0.05)
+    image = tf.image.random_brightness(image, 0.1)
+    image = image + noise
     image = tf.clip_by_value(image, 0.0, 1.0)
 
 
@@ -127,26 +132,6 @@ def parse_pos_images_jpg_train(filename):
 
     return image, label
 
-'''
-Функция формирования единицы данных со швом для tf.DataSet(.npy)
-'''
-def parse_pos_images_npy_train(filemame):
-
-    label = tf.constant([1], dtype=tf.float32)
-    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
-    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
-    image = resize_and_rescale(image)
-    image = data_augmentation(image)
-    image = tf.keras.backend.squeeze(image, axis=0)
-
-    noise = tf.random.normal(image.shape, mean=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_MEAN,
-                             stddev=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_STDEV)
-
-    image = image + noise
-
-
-
-    return image, label
 
 def parse_pos_images_jpg_validation(filename):
 
@@ -158,16 +143,6 @@ def parse_pos_images_jpg_validation(filename):
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
 
     return image, label
-
-def parse_pos_images_npy_validation(filemame):
-
-    label = tf.constant([1], dtype=tf.float32)
-    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
-    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
-    image = resize_and_rescale(image)
-    image = tf.keras.backend.squeeze(image, axis=0)
-    return image, label
-
 
 '''
 Функция формирования единицы данных со швом для tf.DataSet(.jpg)
@@ -181,42 +156,23 @@ def parse_neg_images_jpg_train(filename):
     image = tf.image.convert_image_dtype(image, tf.float32)
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
 
-    # Augment
     image = tf.expand_dims(image, 0)
-    image = data_augmentation(image)
+    image = data_augmentation_weld(image)
     image = tf.squeeze(image, axis=0)
-    # image = tf.clip_by_value(image, 0.0, 1.0)
 
     # Augmen
-    image = tf.image.random_hue(image, 0.3)
-    image = tf.image.random_saturation(image, 0.1, 1.2)
-    image = tf.image.random_brightness(image, 0.1)  # 0.05 [i-0.8, i+0.8]
+    # image = tf.image.random_hue(image, 0.15)
+    # image = tf.image.random_saturation(image, 0.1, 1.2)
+    # image = tf.image.random_contrast(image, 0.5, 1.2)
+    noise = tf.random.normal(shape=tf.shape(image), mean=0, stddev=0.05)
+    image = tf.image.random_brightness(image, 0.1)
+    image = image + noise
     image = tf.clip_by_value(image, 0.0, 1.0)
 
 
     return image, label
 
-'''
-Функция формирования единицы данных без шва для tf.DataSet (.npy)
-'''
 
-def parse_neg_images_npy_train(filemame):
-    label = tf.constant([0], dtype=tf.float32)
-
-    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
-    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
-    image = resize_and_rescale(image)
-    image = data_augmentation(image)
-
-    image = tf.keras.backend.squeeze(image, axis=0)
-    noise = tf.random.normal(image.shape, mean=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_MEAN,
-                             stddev=constants.CLASSIFIER_BINARY_AUGMENTATION_NOISE_STDEV)
-
-    image = image + noise
-
-
-
-    return image, label
 
 
 def parse_neg_images_jpg_validation(filename):
@@ -229,15 +185,6 @@ def parse_neg_images_jpg_validation(filename):
     image = tf.image.resize(image, constants.CLASSIFIER_BINARY_IMG_SIZE)
 
     return image, label
-
-def parse_neg_images_npy_validation(filemame):
-    label = tf.constant([0], dtype=tf.float32)
-    image = tf.py_function(read_npy_file, [filemame], [tf.float32])
-    image = tf.ensure_shape(image, [1, constants.SHAPE_ORIGIN_IMAGE[0], constants.SHAPE_ORIGIN_IMAGE[1], constants.SHAPE_ORIGIN_IMAGE[2]])
-    image = resize_and_rescale(image)
-    image = tf.keras.backend.squeeze(image, axis=0)
-    return image, label
-
 
 '''
 load dataset for training classifier_weld "weld or no weld"
@@ -256,16 +203,20 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     train positive
     '''
     ds_train_pos = tf.data.Dataset.from_tensor_slices(train_pos)
+    ds_train_pos = ds_train_pos.repeat()
     ds_train_pos = ds_train_pos.shuffle(buffer_size=len(train_pos))
     ds_train_pos = ds_train_pos.map(parse_pos_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
 
 
     '''
     train negative
     '''
     ds_train_neg = tf.data.Dataset.from_tensor_slices(train_neg)
+    ds_train_neg = ds_train_neg.repeat()
     ds_train_neg = ds_train_neg.shuffle(buffer_size=len(train_neg))
     ds_train_neg = ds_train_neg.map(parse_neg_images_jpg_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
 
 
     '''
@@ -282,17 +233,24 @@ def load_data_set_classifier_weld(split_size=0.8, seed = 1):
     ds_validation_neg = tf.data.Dataset.from_tensor_slices(validation_neg)
     ds_validation_neg = ds_validation_neg.map(parse_neg_images_jpg_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_pos, ds_train_neg], weights=[0.5, 0.5])
+    resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_pos, ds_train_neg], weights=[0.6, 0.4])
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_BATCH_SIZE)
-    resampled_ds_train.shuffle(buffer_size=len(train_neg)+len(train_pos))
     resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
-    resampled_ds_train = resampled_ds_train.repeat()
 
     resampled_ds_validation = tf.data.experimental.sample_from_datasets([ds_validation_pos, ds_validation_neg])
     resampled_ds_validation = resampled_ds_validation.batch(constants.CLASSIFIER_BATCH_SIZE)
     resampled_ds_validation = resampled_ds_validation.prefetch(tf.data.experimental.AUTOTUNE)
 
     resampled_steps_per_epoch = np.ceil(len(train_pos) / constants.CLASSIFIER_BATCH_SIZE)
+
+    '''cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
+    for element in resampled_ds_train.as_numpy_iterator():
+
+            img, label = element
+            print(img[0].shape)
+            for i in range(len(img)):
+                cv.imshow('test', cv.cvtColor(img[i], code=cv.COLOR_RGB2BGR))
+                cv.waitKey()'''
 
     return resampled_ds_train, resampled_ds_validation, resampled_steps_per_epoch
 
@@ -442,15 +400,18 @@ def parse_multi_label_train(filename, label):
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
+    #image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
 
     image = tf.expand_dims(image, 0)
-    image = data_augmentation(image)
+    image = data_augmentation_weld(image)
     image = tf.squeeze(image, axis=0)
 
     # Augmen
-    image = tf.image.random_brightness(image, 0.05)  # 0.05 [i-0.8, i+0.8]
-    noise = tf.random.normal(tf.shape(image), mean=0, stddev=0.02)
+    #image = tf.image.random_hue(image, 0.15)
+    #image = tf.image.random_saturation(image, 0.1, 1.2)
+    # image = tf.image.random_contrast(image, 0.5, 1.2)
+    noise = tf.random.normal(shape=tf.shape(image), mean=0, stddev=0.06)
+    image = tf.image.random_brightness(image, 0.1)
     image = image + noise
     image = tf.clip_by_value(image, 0.0, 1.0)
 
@@ -462,7 +423,7 @@ def parse_multi_label_validation(filename, label):
     image = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
+    #image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
 
     return image, label
 
@@ -636,9 +597,10 @@ def make_ds_val(images, labels):
 
 def make_ds(images, labels):
     ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    ds = ds.repeat()
     ds = ds.shuffle(buffer_size=len(images))
     ds = ds.map(parse_multi_label_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    ds = ds.repeat()
+
     return ds
 
 def load_data_set_balanced_classifier_defects(split_size=0.9, seed=1):
@@ -738,16 +700,12 @@ def get_marking_balanced_dataset_cast(jsons):
                     if len(image["Masks"]) > 0:
                         label, defects = make_label_cast(image["Masks"])
 
-                        for defect in defects:
 
-                            if defect=='burn_and_fistula' or defect=='pores_and_inclusions':
-                                counter['burn_and_fistula_pores_and_inclusions'] += 1
-                                images['burn_and_fistula_pores_and_inclusions'].append(path_img)
-                                labels['burn_and_fistula_pores_and_inclusions'].append(label)
-                            else:
-                                counter[defect] += 1
-                                images[defect].append(path_img)
-                                labels[defect].append(label)
+                        for defect in defects:
+                            counter[defect] += 1
+                            images[defect].append(path_img)
+                            labels[defect].append(label)
+
 
                     else:
                         print('Masks images({}) is empty'.format(path_img))
@@ -791,17 +749,17 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     # -------------------------------------------------------------------------------
 
     # -----------------------crater--------------------------------------------------
-    list_idx = list(range(len(dict_images['crater'])))
+    list_idx = list(range(len(dict_images['crater_shell'])))
     list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * split_size))
     list_idx_val = [val for val in list_idx if val not in list_idx_train]
 
-    crater_images_train = [dict_images['crater'][i] for i in list_idx_train]
-    crater_labels_train = [dict_labels['crater'][i] for i in list_idx_train]
-    crater_images_validation = [dict_images['crater'][i] for i in list_idx_val]
-    crater_labels_validation = [dict_labels['crater'][i] for i in list_idx_val]
+    crater_shell_images_train = [dict_images['crater_shell'][i] for i in list_idx_train]
+    crater_shell_labels_train = [dict_labels['crater_shell'][i] for i in list_idx_train]
+    crater_shell_images_validation = [dict_images['crater_shell'][i] for i in list_idx_val]
+    crater_shell_labels_validation = [dict_labels['crater_shell'][i] for i in list_idx_val]
     # -------------------------------------------------------------------------------
 
-    # -----------------------shell--------------------------------------------------
+    '''# -----------------------shell--------------------------------------------------
     list_idx = list(range(len(dict_images['shell'])))
     list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * split_size))
     list_idx_val = [val for val in list_idx if val not in list_idx_train]
@@ -809,7 +767,7 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     shell_images_train = [dict_images['shell'][i] for i in list_idx_train]
     shell_labels_train = [dict_labels['shell'][i] for i in list_idx_train]
     shell_images_validation = [dict_images['shell'][i] for i in list_idx_val]
-    shell_labels_validation = [dict_labels['shell'][i] for i in list_idx_val]
+    shell_labels_validation = [dict_labels['shell'][i] for i in list_idx_val]'''
     # -------------------------------------------------------------------------------
 
     # -----------------------background----------------------------------------------
@@ -826,8 +784,7 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     return glass_images_train, glass_labels_train, glass_images_validation, glass_labels_validation,\
            burn_and_fistula_images_train, burn_and_fistula_labels_train, burn_and_fistula_images_validation, burn_and_fistula_labels_validation, \
            metal_spray_images_train, metal_spray_labels_train, metal_spray_images_validation, metal_spray_labels_validation, \
-           crater_images_train, crater_labels_train, crater_images_validation, crater_labels_validation, \
-           shell_images_train, shell_labels_train, shell_images_validation, shell_labels_validation, \
+           crater_shell_images_train, crater_shell_labels_train, crater_shell_images_validation, crater_shell_labels_validation, \
            background_images_train, background_labels_train, background_images_validation, background_labels_validation
 
 
@@ -839,8 +796,7 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
     glass_images_train, glass_labels_train, glass_images_validation, glass_labels_validation, \
     burn_and_fistula_images_train, burn_and_fistula_labels_train, burn_and_fistula_images_validation, burn_and_fistula_labels_validation, \
     metal_spray_images_train, metal_spray_labels_train, metal_spray_images_validation, metal_spray_labels_validation, \
-    crater_images_train, crater_labels_train, crater_images_validation, crater_labels_validation, \
-    shell_images_train, shell_labels_train, shell_images_validation, shell_labels_validation, \
+    crater_shell_images_train, crater_shell_labels_train, crater_shell_images_validation, crater_shell_labels_validation, \
     background_images_train, background_labels_train, background_images_validation, background_labels_validation = split_balanced_defects_cast(images, labels, split_size, seed)
 
     ds_train_glass = make_ds(glass_images_train, glass_labels_train)
@@ -852,11 +808,11 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
     ds_train_metal_spray = make_ds(metal_spray_images_train, metal_spray_labels_train)
     ds_val_metal_spray = make_ds_val(metal_spray_images_validation, metal_spray_labels_validation)
 
-    ds_train_crater = make_ds(crater_images_train, crater_labels_train)
-    ds_val_crater = make_ds_val(crater_images_validation, crater_labels_validation)
+    ds_train_crater_shell = make_ds(crater_shell_images_train, crater_shell_labels_train)
+    ds_val_crater_shell = make_ds_val(crater_shell_images_validation, crater_shell_labels_validation)
 
-    ds_train_shell = make_ds(shell_images_train, shell_labels_train)
-    ds_val_shell = make_ds_val(shell_images_validation, shell_labels_validation)
+    #ds_train_shell = make_ds(shell_images_train, shell_labels_train)
+    #ds_val_shell = make_ds_val(shell_images_validation, shell_labels_validation)
 
     ds_train_background = make_ds(background_images_train, background_labels_train)
     ds_val_background = make_ds_val(background_images_validation, background_labels_validation)
@@ -864,8 +820,8 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
 
     ################# train ds #################
     resampled_ds_train = tf.data.experimental.sample_from_datasets([ds_train_glass, ds_train_burn_and_fistula, ds_train_metal_spray,
-                                                                     ds_train_crater,
-                                                                    ds_train_shell, ds_train_background], weights=[0.14, 0.14, 0.14, 0.14, 0.14, 0.16])
+                                                                     ds_train_crater_shell,
+                                                                     ds_train_background], weights=[0.2, 0.2, 0.2, 0.2, 0.2 ]) #, ds_train_background
 
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
     resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
@@ -874,20 +830,22 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
 
     #####################validation ds###########
     resampled_ds_val = tf.data.experimental.sample_from_datasets(
-        [ds_val_glass, ds_val_burn_and_fistula, ds_val_metal_spray, ds_val_crater,
-         ds_val_shell, ds_val_background], weights=[0.14, 0.14, 0.14, 0.14, 0.14, 0.16])
+        [ds_val_glass, ds_val_burn_and_fistula, ds_val_metal_spray, ds_val_crater_shell,
+          ds_val_background], weights=[0.15, 0.15, 0.15, 0.2, 0.35 ]) #, ds_val_background
 
     resampled_ds_val = resampled_ds_val.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
     resampled_ds_val = resampled_ds_val.prefetch(tf.data.experimental.AUTOTUNE)
     #resampled_ds_val = resampled_ds_val.repeat()
 
-    min_quantity_samples = min(len(glass_images_train), len(burn_and_fistula_images_train), len(metal_spray_images_train),
-                            len(crater_images_train), len(shell_images_train), len(background_images_train))
+    max_quantity_samples = min(len(glass_images_train), len(burn_and_fistula_images_train), len(metal_spray_images_train),
+                            len(crater_shell_images_train), len(background_images_train)) #, len(background_images_train)
 
-    resampled_steps_per_epoch = np.ceil(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES)*min_quantity_samples / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
+    resampled_steps_per_epoch = np.ceil(max_quantity_samples)
+    val_steps = np.ceil((len(glass_images_validation)+len(burn_and_fistula_images_validation)+len(metal_spray_images_validation)
+                         +len(crater_shell_images_validation)))
 
-    '''print(min_quantity_samples)
-    cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
+
+    '''cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
     for element in resampled_ds_train.as_numpy_iterator():
             img, label = element
             for i in range(len(img)):
@@ -895,17 +853,19 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
                 cv.imshow('test', cv.cvtColor(img[i], code=cv.COLOR_RGB2BGR))
                 cv.waitKey()'''
 
-    return resampled_ds_train, resampled_ds_val, resampled_steps_per_epoch
+    return resampled_ds_train, resampled_steps_per_epoch, resampled_ds_val, val_steps
 
 
 def make_label_cast(masks):
 
-    label = np.zeros(shape=(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES)))
+    label = np.zeros(shape=(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES))) # -1
 
     defects = []
     for mask in masks:
         if mask['class_name'] == 'burn_and_fistula' or mask['class_name'] == 'pores_and_inclusions':
             defects.append('burn_and_fistula_pores_and_inclusions')
+        if mask['class_name'] == 'crater' or mask['class_name'] == 'shell':
+            defects.append('crater_shell')
         else:
             if mask['class_name'] in constants.CLASSIFIER_MULTI_LABEL_CLASSES:
                 defects.append(mask['class_name'])
@@ -915,10 +875,12 @@ def make_label_cast(masks):
         if 'background' in constants.CLASSIFIER_MULTI_LABEL_CLASSES:
             defects.append('background')
         else:
-            print('List defects for make label is empty')
-            exit()
+            pass
+            #print('List defects for make label is empty')
+            #exit()
 
     for defect in defects:
+        #if defect != 'background':
         label[constants.CLASSIFIER_MULTI_LABEL_CLASSES.index(defect)] = 1.0
 
 

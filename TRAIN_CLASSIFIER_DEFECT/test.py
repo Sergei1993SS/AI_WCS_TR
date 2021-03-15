@@ -6,6 +6,7 @@ import cv2 as cv
 import numpy as np
 import os
 from models import models, metrics
+import json
 
 
 
@@ -25,7 +26,7 @@ def run():
         images, labels, constants.CLASSIFIER_MULTI_LABEL_SPLIT, constants.CLASSIFIER_MULTI_LABEL_RANDOM_SEED)
 
 
-    classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.871.h5', compile=False)
+    classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.896.h5', compile=False)
 
     optimizer = tf.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999)
     loss = tf.losses.BinaryCrossentropy()
@@ -88,9 +89,176 @@ def run():
         cv.waitKey()
 
 
+def class_in_masks(masks, class_name):
+    for mask in masks:
+        if mask['class_name'] == class_name:
+            return True
 
+    return False
 
+def image_in_IMAGES(IMAGES, image_name):
+    for img in IMAGES:
+        if image_name == img['ImageName']:
+            return True
+    return False
 
+def xz():
+    # run()
+    path = '/home/sergei/DataSet/875_set4/IMAGES/JPEG/'
+    images = os.listdir(path)
+    # images = [path + '/' + image for image in images]
+    # print(images)
+
+    model_defect = tf.keras.models.load_model(
+        constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/precision_classifier_defects0.793.h5', compile=False)
+    model_defect.summary()
+
+    model_weld = tf.keras.models.load_model(constants.CLASSIFIER_BINARY_SAVE_PATH + '/classifier_weld0.989.h5',
+                                            compile=False)
+    model_weld.summary()
+    cv.namedWindow('valid_pos', cv.WINDOW_NORMAL)
+
+    dict_true = {'glass': 0, 'burn_and_fistula_pores_and_inclusions': 0, 'metal_spray': 0, 'crater': 0, 'shell': 0,
+                 'no_weld': 0, 'yes_weld': 0}
+    dict_false = {'glass': 0, 'burn_and_fistula_pores_and_inclusions': 0, 'metal_spray': 0, 'crater': 0, 'shell': 0,
+                  'no_weld': 0, 'yes_weld': 0}
+    dict_pass = {'glass': 0, 'burn_and_fistula_pores_and_inclusions': 0, 'metal_spray': 0, 'crater': 0, 'shell': 0}
+    json_data = {}
+
+    with open("/home/sergei/DataSet/875_set4/JSON/JSON_annotation.json", 'r') as j:
+        json_data = json.load(j)
+        print(json_data['Images'])
+    cv.namedWindow('test', cv.WINDOW_NORMAL)
+    for image in images:
+        if not image_in_IMAGES(json_data['Images'], image):
+            img_out = cv.imread(path + image)
+            img = cv.resize(img_out, dsize=(
+                constants.CLASSIFIER_BINARY_IMG_SIZE[1], constants.CLASSIFIER_BINARY_IMG_SIZE[0]))
+            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+            img = img / 255.0
+            pred = model_weld.predict(np.expand_dims(img, axis=0))
+            pred = np.round(pred[0][0])
+            if pred == 0:
+                dict_true['no_weld'] = dict_true['no_weld'] + 1
+            else:
+                dict_false['yes_weld'] = dict_false['yes_weld'] + 1
+    print(dict_true)
+    print(dict_false)
+
+    for image in json_data['Images']:
+        img_out = cv.imread(path + image['ImageName'])
+        img = cv.resize(img_out, dsize=(
+            constants.CLASSIFIER_BINARY_IMG_SIZE[1], constants.CLASSIFIER_BINARY_IMG_SIZE[0]))
+        cv.imshow("test", img_out)
+        cv.waitKey()
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = img / 255.0
+        pred = model_weld.predict(np.expand_dims(img, axis=0))
+        pred = np.round(pred[0][0])
+        print('weld {}'.format(pred))
+        if pred == 0:
+            if class_in_masks(image["Masks"], 'weld'):
+                dict_false['yes_weld'] = dict_false['yes_weld'] + 1
+            else:
+                dict_true['no_weld'] = dict_true['no_weld'] + 1
+        else:
+            if class_in_masks(image["Masks"], 'weld'):
+                dict_true['yes_weld'] = dict_true['yes_weld'] + 1
+
+                img = cv.resize(img_out, dsize=(
+                    constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0]))
+                img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+                img = img / 255.0
+                pred = model_defect.predict(np.expand_dims(img, axis=0))
+                pred = np.round(pred[0])
+                print('defects {}'.format(pred))
+                #####################################################
+                if pred[0] == 0:
+                    if class_in_masks(image["Masks"], 'glass'):
+                        dict_false['glass'] = dict_false['glass'] + 1
+                else:
+                    if class_in_masks(image["Masks"], 'glass'):
+                        dict_true['glass'] = dict_true['glass'] + 1
+                    else:
+                        dict_pass['glass'] = dict_pass['glass'] + 1
+                #####################################################
+
+                #####################################################
+                if pred[1] == 0:
+                    if class_in_masks(image["Masks"], 'burn_and_fistula') or class_in_masks(image["Masks"],
+                                                                                            'pores_and_inclusions'):
+                        dict_false['burn_and_fistula_pores_and_inclusions'] = dict_false[
+                                                                                  'burn_and_fistula_pores_and_inclusions'] + 1
+                else:
+                    print('yes burn_and_fistula')
+                    if class_in_masks(image["Masks"], 'burn_and_fistula') or class_in_masks(image["Masks"],
+                                                                                            'pores_and_inclusions'):
+                        dict_true['burn_and_fistula_pores_and_inclusions'] = dict_true[
+                                                                                 'burn_and_fistula_pores_and_inclusions'] + 1
+                    else:
+                        dict_pass['burn_and_fistula_pores_and_inclusions'] = dict_pass[
+                                                                                 'burn_and_fistula_pores_and_inclusions'] + 1
+                #####################################################
+
+                if pred[2] == 0:
+                    if class_in_masks(image["Masks"], 'metal_spray'):
+                        dict_false['metal_spray'] = dict_false['metal_spray'] + 1
+
+                else:
+                    if class_in_masks(image["Masks"], 'metal_spray'):
+                        dict_true['metal_spray'] = dict_true['metal_spray'] + 1
+                    else:
+                        dict_pass['metal_spray'] = dict_pass['metal_spray'] + 1
+
+                if pred[3] == 0:
+                    if class_in_masks(image["Masks"], 'crater'):
+                        dict_false['crater'] = dict_false['crater'] + 1
+                else:
+                    if class_in_masks(image["Masks"], 'crater'):
+                        dict_true['crater'] = dict_true['crater'] + 1
+                    else:
+                        dict_pass['crater'] = dict_pass['crater'] + 1
+
+                if pred[4] == 0:
+                    if class_in_masks(image["Masks"], 'shell'):
+                        dict_false['shell'] = dict_false['shell'] + 1
+                else:
+                    if class_in_masks(image["Masks"], 'shell'):
+                        dict_true['shell'] = dict_true['shell'] + 1
+                    else:
+                        dict_pass['shell'] = dict_pass['shell'] + 1
+
+    print(dict_true)
+    print(dict_false)
+    print(dict_pass)
 
 if __name__ == '__main__':
-    run()
+    model_defect = tf.keras.models.load_model(
+        constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/precision_classifier_defects0.793.h5', compile=False)
+    model_defect.summary()
+
+    jsons = statistics.get_jsons()
+    images, labels, counter = load_data.get_marking_balanced_dataset_cast(jsons)
+    print(images)
+    cv.namedWindow('test', cv.WINDOW_NORMAL)
+
+    for i in range(len(images['crater_shell'])):
+        img_out = cv.imread(images['crater_shell'][i])
+        img = cv.resize(img_out, dsize=(
+            constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0]))
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = img / 255.0
+        pred = model_defect.predict(np.expand_dims(img, axis=0))
+        pred = np.squeeze(pred)
+        print(pred)
+        if pred[4] > 0.5:
+            print("Шов без дефектов")
+        else:
+            for j in range(4):
+                if pred[j]>0.7:
+                    print(constants.CLASSIFIER_MULTI_LABEL_CLASSES[j])
+
+        print()
+        print('_________________________________')
+        cv.imshow('test', img_out)
+        cv.waitKey()
