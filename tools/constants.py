@@ -35,10 +35,10 @@ CLASIIFIER_BINARY_LOG_DIR = '/home/sergei/PycharmProjects/AI_WCS_TRAIN/logs/fit/
 '''
 CLASSIFIER_MULTI_LABEL_CLASSES = ['glass', 'burn_and_fistula_pores_and_inclusions', 'metal_spray', 'crater_shell', 'background'] #'cracks', 'undercut',
                                                                                                 # background always in the end
-CLASSIFIER_MULTI_LABEL_RANDOM_SEED = 45256
-CLASSIFIER_MULTI_LABEL_SPLIT = 0.85
+CLASSIFIER_MULTI_LABEL_RANDOM_SEED = 5
+CLASSIFIER_MULTI_LABEL_SPLIT = 0.90
 CLASSIFIER_MULTI_LABEL_IMG_SIZE = [2048, 2448]
-CLASSIFIER_MULTI_LABEL_BATCH_SIZE = 11
+CLASSIFIER_MULTI_LABEL_BATCH_SIZE = 12
 CLASSIFIER_MULTI_LABEL_SAVE_PATH = '/home/sergei/PycharmProjects/AI_WCS_TRAIN/fit_models/classifier_defects'
 CLASSIFIER_MULTI_LABEL_EPOCHS = 2000
 
