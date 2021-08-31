@@ -10,8 +10,8 @@ import os
 from tools import constants
 from tools import load_data
 import json
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+#import matplotlib as mpl
+#import matplotlib.pyplot as plt
 import numpy as np
 
 def get_jsons():
@@ -44,23 +44,27 @@ def parse_stat_json(jsons):
 
     return dict_stat
 
-def plot_DataSet():
-    '''jsons = get_jsons()
+'''def plot_DataSet():
+    jsons = get_jsons()
     images, labels, counter = load_data.get_marking_balanced_dataset_cast(jsons)
-    print(counter)'''
-    dict_now = {'glass': 3368, 'burn_and_fistula_pores_and_inclusions': 147, 'metal_spray': 1066, 'crater_shell': 747, 'background': 7282}
-    dict_old = {'glass': 1829, 'burn_and_fistula_pores_and_inclusions': 147, 'metal_spray': 810, 'crater_shell': 699, 'background': 2111}
+    print(counter)
+    #dict_now = {'glass': 3368, 'burn_and_fistula_pores_and_inclusions': 147, 'metal_spray': 1066, 'crater_shell': 747, 'background': 7282}
+    #dict_old = {'glass': 1829, 'burn_and_fistula_pores_and_inclusions': 147, 'metal_spray': 810, 'crater_shell': 699, 'background': 2111}
+    сurrent = {'glass': 885, 'burn_and_fistula_pores_and_inclusions': 146, 'metal_spray': 730, 'crater_shell': 638,
+     'background': 11807}
 
     labels = ['Шлак', 'Поры\nСвищи\nПрожоги', 'Брызги', 'Кратеры\nРаковины', 'Бездефектный шов']
-    now = [3368, 147, 1066, 747, 7282]
-    old = [1829, 147, 810, 699, 2111]
+    now = [885, 146, 730, 638, 11807]
+    old = [503, 146, 586, 552, 5430]
+    sept = [352, 146, 380, 420, 2302]
 
     x = np.arange(len(labels))  # the label locations
     width = 0.35  # the width of the bars
 
     fig, ax = plt.subplots()
-    rects1 = ax.bar(x - width / 2, old, width, label='Было')
-    rects2 = ax.bar(x + width / 2, now, width, label='Стало')
+    rects0 = ax.bar(x - 4*width / 3, sept, width, label='14.09.2020')
+    rects1 = ax.bar(x - 2*width / 3, old, width, label='1.02.2021')
+    rects2 = ax.bar(x + width / 3, now, width, label='9.04.2021')
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Количество собранных примеров')
@@ -74,11 +78,12 @@ def plot_DataSet():
         for rect in rects:
             height = rect.get_height()
             ax.annotate('{}'.format(height),
-                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xy=(rect.get_x() + rect.get_width() / 3, height),
                         xytext=(0, 3),  # 3 points vertical offset
                         textcoords="offset points",
                         ha='center', va='bottom')
 
+    autolabel(rects0)
     autolabel(rects1)
     autolabel(rects2)
 
@@ -180,4 +185,4 @@ if __name__ == '__main__':
         bbox_to_anchor=(-0.4, 0.8, 0.0, 0.0),
         loc='lower left', labels=data_names)
 
-    plt.show()
+    plt.show()'''

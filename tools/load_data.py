@@ -13,7 +13,7 @@ import numpy as np
 import random
 from tools import statistics
 import json
-import cv2 as cv
+#import cv2 as cv
 
 
 data_augmentation = tf.keras.Sequential([
@@ -24,9 +24,9 @@ data_augmentation = tf.keras.Sequential([
 
 data_augmentation_weld = tf.keras.Sequential([
         tf.keras.layers.experimental.preprocessing.RandomFlip("horizontal_and_vertical"),
-        tf.keras.layers.experimental.preprocessing.RandomRotation(0.02, fill_mode='constant'),
+        #tf.keras.layers.experimental.preprocessing.RandomRotation(0.02, fill_mode='constant'),
 
-        tf.keras.layers.experimental.preprocessing.RandomContrast((0.5, 1.2))
+        #tf.keras.layers.experimental.preprocessing.RandomContrast((0.5, 1.2))
         ])
 
 data_augmentation_neg = tf.keras.Sequential([
@@ -402,17 +402,21 @@ def parse_multi_label_train(filename, label):
     image = tf.image.convert_image_dtype(image, tf.float32)
     #image = tf.image.resize(image, constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE)
 
-    image = tf.expand_dims(image, 0)
-    image = data_augmentation_weld(image)
-    image = tf.squeeze(image, axis=0)
+    image = tf.image.random_jpeg_quality(image, 20, 100)
+    #image = tf.expand_dims(image, 0)
+    #image = data_augmentation_weld(image)
+    #image = tf.squeeze(image, axis=0)
 
     # Augmen
     #image = tf.image.random_hue(image, 0.15)
     #image = tf.image.random_saturation(image, 0.1, 1.2)
-    # image = tf.image.random_contrast(image, 0.5, 1.2)
-    noise = tf.random.normal(shape=tf.shape(image), mean=0, stddev=0.06)
+    #image = tf.image.random_contrast(image, 0.7, 0.9)
+    noise = tf.random.normal(shape=tf.shape(image), mean=0, stddev=0.05)
+
     image = tf.image.random_brightness(image, 0.1)
     image = image + noise
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_flip_up_down(image)
     image = tf.clip_by_value(image, 0.0, 1.0)
 
     return image, label
@@ -592,14 +596,19 @@ def split_balanced_defects(dict_images, dict_labels, split_size, seed):
 
 def make_ds_val(images, labels):
     ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    #ds = ds.repeat()
     ds = ds.map(parse_multi_label_validation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     return ds
 
 def make_ds(images, labels):
     ds = tf.data.Dataset.from_tensor_slices((images, labels))
+
+
+    ds = ds.shuffle(buffer_size=constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
     ds = ds.repeat()
-    ds = ds.shuffle(buffer_size=len(images))
     ds = ds.map(parse_multi_label_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    #ds.cache()
 
     return ds
 
@@ -663,8 +672,8 @@ def load_data_set_balanced_classifier_defects(split_size=0.9, seed=1):
 
     resampled_steps_per_epoch = np.ceil(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES)*min_quantity_samples / constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
 
-    '''print(min_quantity_samples)
-    cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
+    print(min_quantity_samples)
+    '''cv.namedWindow('test', flags=cv.WINDOW_NORMAL)
     for element in resampled_ds_train.as_numpy_iterator():
             img, label = element
             for i in range(len(img)):
@@ -712,7 +721,7 @@ def get_marking_balanced_dataset_cast(jsons):
 
     return images, labels, counter
 
-def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
+def split_balanced_defects_cast_old(dict_images, dict_labels, split_size, seed):
     random_obj = random.Random(seed)
 
     #-----------------------GLASS-------------------------------------------------
@@ -720,10 +729,16 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * split_size))
     list_idx_val = [val for val in list_idx if val not in list_idx_train]
 
+
     glass_images_train = [dict_images['glass'][i] for i in list_idx_train]
     glass_labels_train = [dict_labels['glass'][i] for i in list_idx_train]
     glass_images_validation = [dict_images['glass'][i] for i in list_idx_val]
     glass_labels_validation = [dict_labels['glass'][i] for i in list_idx_val]
+
+    print("______________________")
+    print("TRAIN GLASS: {}".format(len(glass_images_train)))
+    print("VALIDATION GLASS: {}".format(len(glass_images_validation)))
+    print("______________________")
     #-------------------------------------------------------------------------------
 
     # -----------------------burn_and_fistula---------------------------------------
@@ -735,6 +750,10 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     burn_and_fistula_labels_train = [dict_labels['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_train]
     burn_and_fistula_images_validation = [dict_images['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_val]
     burn_and_fistula_labels_validation = [dict_labels['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN PORES: {}".format(len(burn_and_fistula_images_train)))
+    print("VALIDATION PORES: {}".format(len(burn_and_fistula_images_validation)))
+    print("______________________")
     # -------------------------------------------------------------------------------
 
     # -----------------------metal_spray---------------------------------------------
@@ -746,6 +765,10 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     metal_spray_labels_train = [dict_labels['metal_spray'][i] for i in list_idx_train]
     metal_spray_images_validation = [dict_images['metal_spray'][i] for i in list_idx_val]
     metal_spray_labels_validation = [dict_labels['metal_spray'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN SPRAY: {}".format(len(metal_spray_images_train)))
+    print("VALIDATION SPRAY: {}".format(len(metal_spray_images_validation)))
+    print("______________________")
     # -------------------------------------------------------------------------------
 
     # -----------------------crater--------------------------------------------------
@@ -757,6 +780,10 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
     crater_shell_labels_train = [dict_labels['crater_shell'][i] for i in list_idx_train]
     crater_shell_images_validation = [dict_images['crater_shell'][i] for i in list_idx_val]
     crater_shell_labels_validation = [dict_labels['crater_shell'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN CRATER: {}".format(len(crater_shell_images_train)))
+    print("VALIDATION CRATER: {}".format(len(crater_shell_images_validation)))
+    print("______________________")
     # -------------------------------------------------------------------------------
 
     '''# -----------------------shell--------------------------------------------------
@@ -772,13 +799,17 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
 
     # -----------------------background----------------------------------------------
     list_idx = list(range(len(dict_images['background'])))
-    list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * split_size))
+    list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * 0.95)) ###!!!!!!!!!!!!!!!!!!изменен порог!
     list_idx_val = [val for val in list_idx if val not in list_idx_train]
 
     background_images_train = [dict_images['background'][i] for i in list_idx_train]
     background_labels_train = [dict_labels['background'][i] for i in list_idx_train]
     background_images_validation = [dict_images['background'][i] for i in list_idx_val]
     background_labels_validation = [dict_labels['background'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN BACKGROUND: {}".format(len(background_images_train)))
+    print("VALIDATION BACKGROUND: {}".format(len(background_images_validation)))
+    print("______________________")
     # -------------------------------------------------------------------------------
 
     return glass_images_train, glass_labels_train, glass_images_validation, glass_labels_validation,\
@@ -787,6 +818,197 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
            crater_shell_images_train, crater_shell_labels_train, crater_shell_images_validation, crater_shell_labels_validation, \
            background_images_train, background_labels_train, background_images_validation, background_labels_validation
 
+
+def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
+    random_obj = random.Random(seed)
+
+    count_glass_val = len(dict_images['glass']) - int(len(dict_images['glass'])*split_size)
+    count_burn_and_fistula_val = len(dict_images['burn_and_fistula_pores_and_inclusions']) - int(len(dict_images['burn_and_fistula_pores_and_inclusions'])*split_size)
+    count_metal_spray_val = len(dict_images['metal_spray']) - int(len(dict_images['metal_spray'])*split_size)
+    count_crater_shell_val = len(dict_images['crater_shell']) - int(len(dict_images['crater_shell'])*split_size)
+
+    # -----------------------metal_spray---------------------------------------------
+    list_idx = list(range(len(dict_images['metal_spray'])))
+    list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * split_size))
+    list_idx_val = [val for val in list_idx if val not in list_idx_train]
+
+    metal_spray_images_train = [dict_images['metal_spray'][i] for i in list_idx_train]
+    metal_spray_labels_train = [dict_labels['metal_spray'][i] for i in list_idx_train]
+    metal_spray_images_validation = [dict_images['metal_spray'][i] for i in list_idx_val]
+    metal_spray_labels_validation = [dict_labels['metal_spray'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN SPRAY: {}".format(len(metal_spray_images_train)))
+    print("VALIDATION SPRAY: {}".format(len(metal_spray_images_validation)))
+    print("______________________")
+    # -------------------------------------------------------------------------------
+
+    #____________________________CLEAR_______________________________________________
+    for sample in metal_spray_images_train:
+        if sample in dict_images['crater_shell']:
+            idx = dict_images['crater_shell'].index(sample)
+            dict_images['crater_shell'].pop(idx)
+            dict_labels['crater_shell'].pop(idx)
+            print("delete crater_shell")
+
+        if sample in dict_images['glass']:
+            idx = dict_images['glass'].index(sample)
+            dict_images['glass'].pop(idx)
+            dict_labels['glass'].pop(idx)
+            print("delete glass")
+
+        if sample in dict_images['burn_and_fistula_pores_and_inclusions']:
+            idx = dict_images['burn_and_fistula_pores_and_inclusions'].index(sample)
+            dict_images['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            dict_labels['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            print("delete burn_and_fistula_pores_and_inclusions")
+
+    for sample in metal_spray_images_validation:
+        if sample in dict_images['crater_shell']:
+            idx = dict_images['crater_shell'].index(sample)
+            dict_images['crater_shell'].pop(idx)
+            dict_labels['crater_shell'].pop(idx)
+            print("delete crater_shell")
+
+        if sample in dict_images['glass']:
+            idx = dict_images['glass'].index(sample)
+            dict_images['glass'].pop(idx)
+            dict_labels['glass'].pop(idx)
+            print("delete glass")
+
+        if sample in dict_images['burn_and_fistula_pores_and_inclusions']:
+            idx = dict_images['burn_and_fistula_pores_and_inclusions'].index(sample)
+            dict_images['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            dict_labels['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            print("delete burn_and_fistula_pores_and_inclusions")
+    #________________________________________________________________________________
+
+    # -----------------------crater--------------------------------------------------
+    list_idx = list(range(len(dict_images['crater_shell'])))
+    list_idx_val = random_obj.sample(list_idx, count_crater_shell_val)
+    list_idx_train = [val for val in list_idx if val not in list_idx_val]
+
+    crater_shell_images_train = [dict_images['crater_shell'][i] for i in list_idx_train]
+    crater_shell_labels_train = [dict_labels['crater_shell'][i] for i in list_idx_train]
+    crater_shell_images_validation = [dict_images['crater_shell'][i] for i in list_idx_val]
+    crater_shell_labels_validation = [dict_labels['crater_shell'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN CRATER: {}".format(len(crater_shell_images_train)))
+    print("VALIDATION CRATER: {}".format(len(crater_shell_images_validation)))
+    print("______________________")
+    # -------------------------------------------------------------------------------
+
+    # ____________________________CLEAR_______________________________________________
+    for sample in crater_shell_images_train:
+        if sample in dict_images['glass']:
+            idx = dict_images['glass'].index(sample)
+            dict_images['glass'].pop(idx)
+            dict_labels['glass'].pop(idx)
+            print("delete glass")
+
+        if sample in dict_images['burn_and_fistula_pores_and_inclusions']:
+            idx = dict_images['burn_and_fistula_pores_and_inclusions'].index(sample)
+            dict_images['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            dict_labels['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            print("delete burn_and_fistula_pores_and_inclusions")
+
+    for sample in crater_shell_images_validation:
+        if sample in dict_images['glass']:
+            idx = dict_images['glass'].index(sample)
+            dict_images['glass'].pop(idx)
+            dict_labels['glass'].pop(idx)
+            print("delete glass")
+
+        if sample in dict_images['burn_and_fistula_pores_and_inclusions']:
+            idx = dict_images['burn_and_fistula_pores_and_inclusions'].index(sample)
+            dict_images['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            dict_labels['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            print("delete burn_and_fistula_pores_and_inclusions")
+    # ________________________________________________________________________________
+
+    #-----------------------GLASS-------------------------------------------------
+    list_idx = list(range(len(dict_images['glass'])))
+    list_idx_val = random_obj.sample(list_idx, count_glass_val)
+    list_idx_train = [val for val in list_idx if val not in list_idx_val]
+
+
+    glass_images_train = [dict_images['glass'][i] for i in list_idx_train]
+    glass_labels_train = [dict_labels['glass'][i] for i in list_idx_train]
+    glass_images_validation = [dict_images['glass'][i] for i in list_idx_val]
+    glass_labels_validation = [dict_labels['glass'][i] for i in list_idx_val]
+
+    print("______________________")
+    print("TRAIN GLASS: {}".format(len(glass_images_train)))
+    print("VALIDATION GLASS: {}".format(len(glass_images_validation)))
+    print("______________________")
+    #-------------------------------------------------------------------------------
+
+    # ____________________________CLEAR_______________________________________________
+    for sample in glass_images_train:
+
+        if sample in dict_images['burn_and_fistula_pores_and_inclusions']:
+            idx = dict_images['burn_and_fistula_pores_and_inclusions'].index(sample)
+            dict_images['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            dict_labels['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            print("delete burn_and_fistula_pores_and_inclusions")
+
+    for sample in glass_images_validation:
+        if sample in dict_images['burn_and_fistula_pores_and_inclusions']:
+            idx = dict_images['burn_and_fistula_pores_and_inclusions'].index(sample)
+            dict_images['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            dict_labels['burn_and_fistula_pores_and_inclusions'].pop(idx)
+            print("delete burn_and_fistula_pores_and_inclusions")
+    # ________________________________________________________________________________
+
+    # -----------------------burn_and_fistula---------------------------------------
+    list_idx = list(range(len(dict_images['burn_and_fistula_pores_and_inclusions'])))
+    list_idx_val = random_obj.sample(list_idx, count_burn_and_fistula_val)
+    list_idx_train = [val for val in list_idx if val not in list_idx_val]
+
+    burn_and_fistula_images_train = [dict_images['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_train]
+    burn_and_fistula_labels_train = [dict_labels['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_train]
+    burn_and_fistula_images_validation = [dict_images['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_val]
+    burn_and_fistula_labels_validation = [dict_labels['burn_and_fistula_pores_and_inclusions'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN PORES: {}".format(len(burn_and_fistula_images_train)))
+    print("VALIDATION PORES: {}".format(len(burn_and_fistula_images_validation)))
+    print("______________________")
+    # -------------------------------------------------------------------------------
+
+
+
+
+
+    '''# -----------------------shell--------------------------------------------------
+    list_idx = list(range(len(dict_images['shell'])))
+    list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * split_size))
+    list_idx_val = [val for val in list_idx if val not in list_idx_train]
+
+    shell_images_train = [dict_images['shell'][i] for i in list_idx_train]
+    shell_labels_train = [dict_labels['shell'][i] for i in list_idx_train]
+    shell_images_validation = [dict_images['shell'][i] for i in list_idx_val]
+    shell_labels_validation = [dict_labels['shell'][i] for i in list_idx_val]'''
+    # -------------------------------------------------------------------------------
+
+    # -----------------------background----------------------------------------------
+    list_idx = list(range(len(dict_images['background'])))
+    list_idx_train = random_obj.sample(list_idx, int(len(list_idx) * 0.97)) ###!!!!!!!!!!!!!!!!!!изменен порог!
+    list_idx_val = [val for val in list_idx if val not in list_idx_train]
+
+    background_images_train = [dict_images['background'][i] for i in list_idx_train]
+    background_labels_train = [dict_labels['background'][i] for i in list_idx_train]
+    background_images_validation = [dict_images['background'][i] for i in list_idx_val]
+    background_labels_validation = [dict_labels['background'][i] for i in list_idx_val]
+    print("______________________")
+    print("TRAIN BACKGROUND: {}".format(len(background_images_train)))
+    print("VALIDATION BACKGROUND: {}".format(len(background_images_validation)))
+    print("______________________")
+    # -------------------------------------------------------------------------------
+
+    return glass_images_train, glass_labels_train, glass_images_validation, glass_labels_validation,\
+           burn_and_fistula_images_train, burn_and_fistula_labels_train, burn_and_fistula_images_validation, burn_and_fistula_labels_validation, \
+           metal_spray_images_train, metal_spray_labels_train, metal_spray_images_validation, metal_spray_labels_validation, \
+           crater_shell_images_train, crater_shell_labels_train, crater_shell_images_validation, crater_shell_labels_validation, \
+           background_images_train, background_labels_train, background_images_validation, background_labels_validation
 
 def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
 
@@ -799,23 +1021,42 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
     crater_shell_images_train, crater_shell_labels_train, crater_shell_images_validation, crater_shell_labels_validation, \
     background_images_train, background_labels_train, background_images_validation, background_labels_validation = split_balanced_defects_cast(images, labels, split_size, seed)
 
+    '''All_Valid_image = []
+    All_Valid_label = []
+'''
     ds_train_glass = make_ds(glass_images_train, glass_labels_train)
+
+
     ds_val_glass = make_ds_val(glass_images_validation, glass_labels_validation)
+    '''All_Valid_image.extend(glass_images_validation)
+    All_Valid_label.extend(glass_labels_validation)'''
+
 
     ds_train_burn_and_fistula = make_ds(burn_and_fistula_images_train, burn_and_fistula_labels_train)
     ds_val_burn_and_fistula = make_ds_val(burn_and_fistula_images_validation, burn_and_fistula_labels_validation)
 
+    '''All_Valid_image.extend(burn_and_fistula_images_validation)
+    All_Valid_label.extend(burn_and_fistula_labels_validation)'''
+
     ds_train_metal_spray = make_ds(metal_spray_images_train, metal_spray_labels_train)
     ds_val_metal_spray = make_ds_val(metal_spray_images_validation, metal_spray_labels_validation)
 
+    '''All_Valid_image.extend(metal_spray_images_validation)
+    All_Valid_label.extend(metal_spray_labels_validation)'''
+
     ds_train_crater_shell = make_ds(crater_shell_images_train, crater_shell_labels_train)
     ds_val_crater_shell = make_ds_val(crater_shell_images_validation, crater_shell_labels_validation)
+    '''All_Valid_image.extend(crater_shell_images_validation)
+    All_Valid_label.extend(crater_shell_labels_validation)'''
 
     #ds_train_shell = make_ds(shell_images_train, shell_labels_train)
     #ds_val_shell = make_ds_val(shell_images_validation, shell_labels_validation)
 
     ds_train_background = make_ds(background_images_train, background_labels_train)
     ds_val_background = make_ds_val(background_images_validation, background_labels_validation)
+    '''All_Valid_image.extend(background_images_validation)
+    All_Valid_label.extend(background_labels_validation)'''
+
 
 
     ################# train ds #################
@@ -823,26 +1064,33 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
                                                                      ds_train_crater_shell,
                                                                      ds_train_background], weights=[0.2, 0.2, 0.2, 0.2, 0.2 ]) #, ds_train_background
 
+
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    resampled_ds_train = resampled_ds_train.with_options(options)
+
     resampled_ds_train = resampled_ds_train.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
-    resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
+    #resampled_ds_train = resampled_ds_train.prefetch(tf.data.experimental.AUTOTUNE)
     #resampled_ds_train = resampled_ds_train.repeat()
     ############################################
 
     #####################validation ds###########
     resampled_ds_val = tf.data.experimental.sample_from_datasets(
         [ds_val_glass, ds_val_burn_and_fistula, ds_val_metal_spray, ds_val_crater_shell,
-          ds_val_background], weights=[0.15, 0.15, 0.15, 0.2, 0.35 ]) #, ds_val_background
+          ds_val_background], weights=[0.2, 0.2, 0.2, 0.2, 0.2 ]) #, ds_val_background
 
-    resampled_ds_val = resampled_ds_val.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
-    resampled_ds_val = resampled_ds_val.prefetch(tf.data.experimental.AUTOTUNE)
+    #resampled_ds_val = make_ds_val(All_Valid_image, All_Valid_label)
+    resampled_ds_val = resampled_ds_val.with_options(options)
+    resampled_ds_val = resampled_ds_val.batch(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE) #constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE
+    #resampled_ds_val = resampled_ds_val.prefetch(1)
+    #resampled_ds_val.cache()
     #resampled_ds_val = resampled_ds_val.repeat()
 
-    max_quantity_samples = min(len(glass_images_train), len(burn_and_fistula_images_train), len(metal_spray_images_train),
-                            len(crater_shell_images_train), len(background_images_train)) #, len(background_images_train)
+    max_quantity_samples = min(len(glass_images_train),
+                             len(background_images_train)) #, len(background_images_train)
 
-    resampled_steps_per_epoch = np.ceil(max_quantity_samples)
-    val_steps = np.ceil((len(glass_images_validation)+len(burn_and_fistula_images_validation)+len(metal_spray_images_validation)
-                         +len(crater_shell_images_validation)))
+    resampled_steps_per_epoch = np.ceil(max_quantity_samples/(constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE*0.25))
+    val_steps = np.ceil(len(crater_shell_images_validation)/constants.CLASSIFIER_MULTI_LABEL_BATCH_SIZE)
 
 
     '''cv.namedWindow('test', flags=cv.WINDOW_NORMAL)

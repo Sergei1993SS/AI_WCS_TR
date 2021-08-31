@@ -1,77 +1,103 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import glob
-from pathlib import Path
-from sklearn.model_selection import train_test_split,StratifiedKFold
-import os
-import keras
-from keras import backend as K
-from keras.utils import Sequence
-from PIL import Image
-import cv2
-import albumentations
-from classification_models.keras import Classifiers
-import segmentation_models as sm
-import pandas as pd
-from keras.layers import Input, Conv2D, Conv2DTranspose, MaxPooling2D, concatenate, Dropout,BatchNormalization
-from keras.layers import Conv2D, Concatenate, MaxPooling2D , MaxPool2D, UpSampling2D
-from keras.layers import UpSampling2D, Dropout, BatchNormalization, Multiply
-from keras.layers import LeakyReLU, Dense, GlobalAveragePooling2D, Lambda, GlobalMaxPooling2D
-from keras.layers import ZeroPadding2D, Flatten
-from keras.losses import binary_crossentropy
-from keras.layers import Input,Dropout,BatchNormalization,Activation,Add, add, multiply
-from keras.layers.merge import concatenate, add
-from keras.models import Model
-from keras.callbacks import ModelCheckpoint
-
-from tqdm import tqdm_notebook
-import keras.callbacks as callbacks
+from tools import load_data
+from tools import constants
+from models import models
+from callbacks import callback
 import tensorflow as tf
-import seaborn as sns
 import shutil
-
-from collections import defaultdict
-
-from tools import mask
-
-
-train_dir = 'severstal-steel-defect-detection/train_images'
-mask_dir = 'severstal-steel-defect-detection/train.csv'
-test_dir = 'severstal-steel-defect-detection/test_images'
-
-epochs = 30
-batch_size = 12
-swa_nb = epochs-5
-
-lr = 0.001
-image_size = (256, 1600)
-shrink = 2
-channels = 3
-
-
-model_name = 'Uefficientnet_bce'
-
+from models import metrics
 
 def run():
-    
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    print(tf.__version__)
+    #jsons = statistics.get_jsons()
+    '''dict_stat = statistics.parse_stat_json(jsons)
+    statistics.plot_stat(dict_stat)'''
 
-    train_dir_image_check = glob.glob(train_dir + '/*')[0]
-    img = Image.open(train_dir_image_check)
-    mask_df = pd.read_csv(mask_dir)
-    print(mask_df)
+    shutil.rmtree(constants.CLASSIFIER_MULTI_LABEL_LOG_DIR, ignore_errors=True)
 
-    for col in range(0, len(mask_df), 4):
-        img_names = [str(i).split("_")[0] for i in mask_df.iloc[col:col + 4, 0].values]
-        print(img_names)
-        if img_names[0] == train_dir_image_check.split('\\')[-1]:
-            mask_test = np.empty((4, np.array(img).shape[0], np.array(img).shape[1], 1))
-            for idx in range(4):
-                print(mask_df.iloc[col + idx, 1])
-                temp_mask = mask.rle2mask(mask_df.iloc[col + idx, 1], (np.array(img).shape[0], np.array(img).shape[1]))
-                mask_test[idx] = temp_mask.reshape((temp_mask.shape[0], temp_mask.shape[1], 1))
-            break
+    ds_train,  steps_per_epoch, ds_validation,val_steps = load_data.load_data_set_balanced_classifier_defects_cast(split_size=constants.CLASSIFIER_MULTI_LABEL_SPLIT,
+                                                                                          seed=constants.CLASSIFIER_MULTI_LABEL_RANDOM_SEED) #ds_validation,
+    tf.keras.backend.clear_session()
 
-    #print(mask_test.shape)
+    #strategy = tf.distribute.MultiWorkerMirroredStrategy()
+
+    #with strategy.scope():
+    classifier_model = models.get_model_multi_label_classifier_XXX(
+        shape=(constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], 3))
+    #classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.846.h5', compile=False)
+    classifier_model.summary()
+    CallBack_SaveModel = callback.Classifier_Defect_CallBack()
+    CallBack_TensorDoard = tf.keras.callbacks.TensorBoard(log_dir=constants.CLASSIFIER_MULTI_LABEL_LOG_DIR,
+                                                          histogram_freq=1,
+                                                          write_images=False, profile_batch=0)
+
+    optimizer = tf.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999)
+    optimizerNAdam = tf.optimizers.Nadam(learning_rate=0.001)
+    # accuracy = tf.metrics.BinaryAccuracy(threshold=0.7)
+    loss = tf.losses.BinaryCrossentropy()
+    # ls = loss.f1
+
+    classifier_model.compile(optimizer=optimizerNAdam, loss=loss, metrics=[metrics.f1,
+
+                                                                      tf.metrics.Recall(thresholds=0.5,
+                                                                                        class_id=0,
+                                                                                        name='Recall_GLASS'),
+                                                                      tf.metrics.Precision(thresholds=0.5,
+                                                                                           class_id=0,
+                                                                                           name='Precision_GLASS'),
+                                                                      tf.metrics.Recall(thresholds=0.5,
+                                                                                        class_id=1,
+                                                                                        name='Recall_burn_and_fistula'),
+                                                                      tf.metrics.Precision(thresholds=0.5,
+                                                                                           class_id=1,
+                                                                                           name='Precision_burn_and_fistula'),
+                                                                      tf.metrics.Recall(thresholds=0.5,
+                                                                                        class_id=2,
+                                                                                        name='Recall_metal_spray'),
+                                                                      tf.metrics.Precision(thresholds=0.5,
+                                                                                           class_id=2,
+                                                                                           name='Precision_metal_spray'),
+                                                                      tf.metrics.Recall(thresholds=0.5,
+                                                                                        class_id=3,
+                                                                                        name='Recall_crater_shell'),
+                                                                      tf.metrics.Precision(thresholds=0.5,
+                                                                                           class_id=3,
+                                                                                           name='Precision_crater_shell'),
+                                                                      tf.metrics.Recall(thresholds=0.5,
+                                                                                        class_id=4,
+                                                                                        name='Recall_background'),
+                                                                      tf.metrics.Precision(thresholds=0.5,
+                                                                                           class_id=4,
+                                                                                           name='Precision_background'),
+                                                                      # tf.metrics.Recall(thresholds=0.5, class_id=5),
+                                                                      # tf.metrics.Precision(thresholds=0.5, class_id=5),
+                                                                      # tf.metrics.Recall(thresholds=0.5, class_id=6),
+                                                                      # tf.metrics.Precision(thresholds=0.5, class_id=6),
+                                                                      ],
+                             run_eagerly=False)
+
+    class_weight = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.,
+                    # Установим вес "2" для класса "5",
+                    # сделав этот класс в 2x раз важнее
+                    # 5: 1.,
+                    }
+
+    history = classifier_model.fit(
+        ds_train,
+        epochs=constants.CLASSIFIER_MULTI_LABEL_EPOCHS,
+        steps_per_epoch=steps_per_epoch,
+        validation_data=ds_validation,
+        #validation_steps=val_steps,
+        validation_freq=1,
+        class_weight=class_weight,
+        verbose=1,
+        use_multiprocessing=False,
+        workers=1,
+        callbacks=[CallBack_SaveModel, CallBack_TensorDoard]
+    )
+
+    print(history.history)
+
 
 
 

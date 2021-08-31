@@ -30,7 +30,7 @@ def run():
 
 
 
-    classifier_model.compile(optimizer=optimizer, loss=tf.losses.binary_crossentropy, metrics=[metrics.f1, tf.metrics.Recall(thresholds=0.5),
+    classifier_model.compile(optimizer=optimizerNAdam, loss=tf.losses.binary_crossentropy, metrics=[metrics.f1, tf.metrics.Recall(thresholds=0.5),
                                                                                                tf.metrics.Precision(thresholds=0.5)],
                                                                                                 )
 

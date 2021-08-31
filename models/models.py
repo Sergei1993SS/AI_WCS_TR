@@ -10,9 +10,7 @@ e-mail: sergei.sisyukin@gmail.com
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
-import tensorflow_hub as hub
 from tools import constants
-from tensorflow.keras.applications import VGG16, ResNet50, DenseNet121
 
 
 
@@ -209,6 +207,7 @@ def branch_pyramid_1(input_layers):
     layer = layers.Dropout(0.4)(layer)
     layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_1')(layer)
     layer = layers.Conv2D(384, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_1')(layer)
+    layer = layers.AveragePooling2D()(layer)
 
     '''flatten = layers.Flatten()(layer)
     layer = layers.Dropout(0.3)(flatten)
@@ -238,6 +237,7 @@ def branch_pyramid_2(input_layers):
     layer = layers.Dropout(0.4)(layer)
     layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool6_branch_pyramid_2')(layer)
     layer = layers.Conv2D(384, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(layer)
+    layer = layers.AveragePooling2D()(layer)
 
     '''layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool6_branch_pyramid_2')(layer)
     layer = layers.Conv2D(192, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(layer)
@@ -249,6 +249,218 @@ def branch_pyramid_2(input_layers):
                          use_bias=True)(layer)'''
     return layer
 
+def branch_pyramid_2_2(input_layers):
+    resize = layers.experimental.preprocessing.Resizing(height=int(input_layers.shape[1]/4), width=int(input_layers.shape[2]/4))(input_layers)
+    layer = layers.Conv2D(32, [3, 3], padding='same', activation=tf.nn.relu, name='C1_branch_pyramid_2')(resize)
+    #layer = layers.Conv2D(12, [3, 3], padding='same', activation=tf.nn.relu, name='C1_2_branch_pyramid_2')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool1_branch_pyramid_2')(layer)
+
+    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_2')(max)
+    #layer = layers.Conv2D(24, [3, 3], padding='same', activation=tf.nn.relu, name='C2_2_branch_pyramid_2')(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool2_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(50, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_2')(max)
+    #layer = layers.Conv2D(48, [3, 3], padding='same', activation=tf.nn.relu, name='C4_2_branch_pyramid_2')(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool3_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(55, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool4_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(65, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool5_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(70, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Conv2D(100, [1, 1], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_3')(layer)
+
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool6_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(75, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Conv2D(100, [1, 1], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_3')(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(80, [3, 3], padding='valid', activation=tf.nn.relu, name='C10_branch_pyramid_2')(layer)
+
+    layer = layers.AveragePooling2D()(layer)
+    layer = layers.Conv2D(30, [1, 1], padding='valid', activation=tf.nn.relu, name='C10_branch_pyramid_3')(layer)
+    #layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_2')(layer)
+    #layer = layers.AveragePooling2D()(layer)
+
+    '''layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool6_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(192, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(layer)
+    flatten = layers.Flatten()(layer)
+    layer = layers.Dropout(0.2)(flatten)
+    layer = layers.Dense(5, activation=tf.nn.sigmoid, name='output_branch_pyramid_2',
+                         kernel_initializer=tf.keras.initializers.HeNormal(),
+                         bias_initializer=tf.keras.initializers.LecunNormal(),
+                         use_bias=True)(layer)'''
+    return layer
+
+def branch_pyramid_4(input_layers):
+    resize = layers.experimental.preprocessing.Resizing(height=int(input_layers.shape[1] / 4),
+                                                        width=int(input_layers.shape[2] / 4))(input_layers)
+    layer = layers.Conv2D(16, [3, 3], padding='same', activation=tf.nn.relu, name='C1_branch_pyramid_2')(resize)
+    layer = layers.Conv2D(16, [3, 3], padding='same', activation=tf.nn.relu, name='C1_2_branch_pyramid_2')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool1_branch_pyramid_2')(layer)
+
+    layer = layers.Conv2D(32, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Conv2D(32, [3, 3], padding='same', activation=tf.nn.relu, name='C2_2_branch_pyramid_2')(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool2_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C4_2_branch_pyramid_2')(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool3_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(80, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool4_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(100, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool5_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(120, [3, 3], padding='valid', activation=tf.nn.relu, name='C8_branch_pyramid_2')(max)
+    layer = layers.Dropout(0.5)(layer)
+    layer = layers.Conv2D(120, [3, 3], padding='valid', activation=tf.nn.relu, name='C8_branch_pyramid_3')(max)
+    #layer = layers.Concatenate()([layer, max])
+
+    max = layers.MaxPooling2D(pool_size=(3, 3), name='pool6_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(140, [3, 3], padding='valid', activation=tf.nn.relu, name='C9_branch_pyramid_2')(max)
+    #layer = layers.Dropout(0.45)(layer)
+    #layer = layers.Concatenate()([layer, max])
+
+    #layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_2')(layer)
+    #layer = layers.Conv2D(160, [3, 3], padding='valid', activation=tf.nn.relu, name='C10_branch_pyramid_2')(layer)
+    #layer = layers.Dropout(0.45)(layer)
+    #layer = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_3')(layer)
+    #layer = layers.Conv2D(180, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_3')(layer)
+
+
+
+
+    return layer
+
+def branch_pyramid_5(input_layers):
+    resize = layers.experimental.preprocessing.Resizing(height=int(input_layers.shape[1] / 4),
+                                                        width=int(input_layers.shape[2] / 4))(input_layers)
+    layer = layers.Conv2D(16, [3, 3], padding='same', activation=tf.nn.relu, name='C1_branch_pyramid_2')(resize)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool1_branch_pyramid_2')(layer)
+
+    layer = layers.Conv2D(16, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+    layer = layers.Conv2D(30, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_3')(layer)
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool2_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(30, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_3')(layer)
+
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool3_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(50, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_3')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool4_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(50, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(60, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_3')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool5_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(60, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(70, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_4')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool6_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(70, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(80, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_3')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(80, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_2')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(90, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_4')(layer)
+    max = layers.MaxPooling2D(pool_size=(2, 2), name='pool8_branch_pyramid_2')(layer)
+    layer = layers.Conv2D(90, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_3')(max)
+    layer = layers.Concatenate()([layer, max])
+
+
+    layer = layers.Conv2D(45, [1, 1], padding='same', activation=tf.nn.relu, name='C11_branch_pyramid_1')(layer)
+
+
+    return layer
+
+def branch_pyramid_6(input_layers):
+    resize = layers.experimental.preprocessing.Resizing(height=int(input_layers.shape[1] / 4),
+                                                        width=int(input_layers.shape[2] / 4))(input_layers)
+    layer = layers.Conv2D(26, [3, 3], padding='same', activation=tf.nn.relu, name='C1_branch_pyramid_1')(resize)
+
+    max = layers.Conv2D(26, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C1_branch_pyramid_2')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(26, [3, 3], padding='same', activation=tf.nn.relu, name='C1_branch_pyramid_3')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(30, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C2_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(30, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(35, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C3_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(35, [3, 3], padding='same', activation=tf.nn.relu, name='C3_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(40, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C4_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(45, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C5_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(45, [3, 3], padding='same', activation=tf.nn.relu, name='C5_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(50, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C6_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(50, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(55, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C7_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(55, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    max = layers.Conv2D(60, [3, 3], padding='same', strides=2, activation=tf.nn.relu, name='C8_branch_pyramid_1')(layer)
+    layer = layers.Dropout(0.5)(max)
+    layer = layers.Conv2D(60, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_2')(layer)
+    layer = layers.Add()([layer, max])
+
+    layer = layers.Conv2D(30, [1, 1], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_3')(layer)
+    return layer
+
 
 
 def get_model_multi_label_classifier_XXX(shape=None):
@@ -256,16 +468,17 @@ def get_model_multi_label_classifier_XXX(shape=None):
 
 
 
-    layer_branch_pyramid_1 = branch_pyramid_1(Input)
-    layer_branch_pyramid_2 = branch_pyramid_2(Input)
-    #layer_branch_pyramid_3 = branch_pyramid_3(Input)
+    #layer_branch_pyramid_1 = branch_pyramid_1(Input)
+    #layer_branch_pyramid_2 = branch_pyramid_2(Input)
+    layer_branch_pyramid_3 = branch_pyramid_5(Input)
 
-    final_layer = layers.Add()([layer_branch_pyramid_1, layer_branch_pyramid_2])
+    #final_layer = layers.Add()([layer_branch_pyramid_1, layer_branch_pyramid_2])
+
+    final_layer = layers.Flatten()(layer_branch_pyramid_3)
+
     final_layer = layers.Dropout(0.5)(final_layer)
-    final_layer = layers.Flatten()(final_layer)
     final_layer = layers.Dense(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES), activation=tf.nn.sigmoid, name='output',
-                         kernel_initializer=tf.keras.initializers.LecunNormal(1),
-                         bias_initializer=tf.keras.initializers.LecunNormal(),
+                         bias_regularizer=tf.keras.regularizers.L2(0.00003),
                          use_bias=True)(final_layer)
 
     return Model(Input, final_layer)

@@ -7,4 +7,5 @@ def run():
 
 
 if __name__ == '__main__':
-    statistics.plot_DataSet()
+    #statistics.plot_DataSet()
+    run()

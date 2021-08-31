@@ -1,13 +1,17 @@
+import time
+
 import tensorflow as tf
 from tools import constants
 from tools import statistics
 from tools import load_data
 import cv2 as cv
-import numpy as np
 import os
 from models import models, metrics
 import json
-
+from typing import Tuple
+import numpy as np
+import cv2
+from PIL import Image, ImageDraw, ImageFont
 
 
 def run():
@@ -104,7 +108,7 @@ def image_in_IMAGES(IMAGES, image_name):
 
 def xz():
     # run()
-    path = '/home/sergei/DataSet/875_set4/IMAGES/JPEG/'
+    path = '/home/sergei/DataSet/875_set10/IMAGES/JPEG/'
     images = os.listdir(path)
     # images = [path + '/' + image for image in images]
     # print(images)
@@ -232,9 +236,88 @@ def xz():
     print(dict_false)
     print(dict_pass)
 
-if __name__ == '__main__':
+
+# define decorator
+def init_parameters(fun, **init_dict):
+    """
+    help you to set the parameters in one's habits
+    """
+    def job(*args, **option):
+        option.update(init_dict)
+        return fun(*args, **option)
+    return job
+
+
+def cv2_img_add_text(img, text, left_corner: Tuple[int, int],
+                     text_rgb_color=(255, 0, 0), text_size=24, font='arial.ttf', **option):
+    """
+    USAGE:
+        cv2_img_add_text(img, '中文', (0, 0), text_rgb_color=(0, 255, 0), text_size=12, font='mingliu.ttc')
+    """
+    pil_img = img
+    if isinstance(pil_img, np.ndarray):
+        pil_img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(pil_img)
+    font_text = ImageFont.truetype(font=font, size=text_size, encoding=option.get('encoding', 'utf-8'))
+    draw.text(left_corner, text, text_rgb_color, font=font_text)
+    cv2_img = cv2.cvtColor(np.asarray(pil_img), cv2.COLOR_RGB2BGR)
+    if option.get('replace'):
+        img[:] = cv2_img[:]
+        return None
+    return cv2_img
+
+def run2():
+    path = '/home/sergei/DataSet/875_set15/IMAGES/JPEG/'
+    images = os.listdir(path)
+    images.sort()
+    dict_defects = {0:"Шлаковые вкючения", 1:"Поры/прожог/свищ", 2:"Брызги металла", 3:"Кратер/раковина", 4:"Шов в норме"}
+
     model_defect = tf.keras.models.load_model(
-        constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/precision_classifier_defects0.793.h5', compile=False)
+        constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.889.h5', compile=False)
+    model_defect.summary()
+    TEXT_SIZE = LINE_HEIGHT = 100
+
+    cv.namedWindow('Demo', cv.WINDOW_NORMAL)
+    cv.resizeWindow('Demo', 1000, 900)
+    for image in images:
+        img_out = cv.imread(path + image)
+
+
+        img = cv.resize(img_out, dsize=(
+            constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0]))
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = img / 255.0
+        pred = model_defect.predict(np.expand_dims(img, axis=0))[0]
+        pred[pred<0.6] = 0
+        pred = np.round(pred)
+
+        index = 0
+        for idx in range(len(pred)):
+
+            if pred[4]>0.6:
+                img_out = cv2_img_add_text(img_out, dict_defects[4], (0, 0), text_rgb_color=(0, 255, 0), text_size=TEXT_SIZE)
+                break
+            if np.max(pred[0:4])<0.6:
+                img_out = cv2_img_add_text(img_out, dict_defects[4], (0, 0), text_rgb_color=(0, 255, 0),
+                                           text_size=TEXT_SIZE)
+                break
+            elif pred[idx]>0.6 and pred[4]<0.6:
+                img_out = cv2_img_add_text(img_out, dict_defects[idx], (0, LINE_HEIGHT * index), text_rgb_color=(255, 0, 0),
+                                           text_size=TEXT_SIZE)
+                index = index +1
+
+        cv.imshow("Demo", img_out)
+        print('defects {}'.format(pred))
+        cv.waitKey(1)
+        time.sleep(0.5)
+
+
+
+
+if __name__ == '__main__':
+    run2()
+    '''model_defect = tf.keras.models.load_model(
+        constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/precision_classifier_defects0.776.h5', compile=False)
     model_defect.summary()
 
     jsons = statistics.get_jsons()
@@ -261,4 +344,4 @@ if __name__ == '__main__':
         print()
         print('_________________________________')
         cv.imshow('test', img_out)
-        cv.waitKey()
+        cv.waitKey()'''
