@@ -362,53 +362,53 @@ def branch_pyramid_5(input_layers):
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool1_branch_pyramid_2')(layer)
 
     layer = layers.Conv2D(16, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Average()([layer, max])
 
-    layer = layers.Conv2D(30, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_3')(layer)
+    layer = layers.Conv2D(32, [3, 3], padding='same', activation=tf.nn.relu, name='C2_branch_pyramid_3')(layer)
 
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool2_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(30, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(32, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_2')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_3')(layer)
+    layer = layers.Conv2D(64, [3, 3], padding='same', activation=tf.nn.relu, name='C4_branch_pyramid_3')(layer)
 
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool3_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(40, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(64, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_2')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(50, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_3')(layer)
+    layer = layers.Conv2D(74, [3, 3], padding='same', activation=tf.nn.relu, name='C6_branch_pyramid_3')(layer)
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool4_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(50, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(74, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_2')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(60, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_3')(layer)
+    layer = layers.Conv2D(84, [3, 3], padding='same', activation=tf.nn.relu, name='C7_branch_pyramid_3')(layer)
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool5_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(60, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(84, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_2')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(70, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_4')(layer)
+    layer = layers.Conv2D(94, [3, 3], padding='same', activation=tf.nn.relu, name='C8_branch_pyramid_4')(layer)
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool6_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(70, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(94, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_2')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(80, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_3')(layer)
+    layer = layers.Conv2D(104, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_3')(layer)
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool7_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(80, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_2')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(104, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_2')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(90, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_4')(layer)
+    layer = layers.Conv2D(114, [3, 3], padding='same', activation=tf.nn.relu, name='C9_branch_pyramid_4')(layer)
     max = layers.MaxPooling2D(pool_size=(2, 2), name='pool8_branch_pyramid_2')(layer)
-    layer = layers.Conv2D(90, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_3')(max)
-    layer = layers.Concatenate()([layer, max])
+    layer = layers.Conv2D(114, [3, 3], padding='same', activation=tf.nn.relu, name='C10_branch_pyramid_3')(max)
+    layer = layers.Average()([layer, max])
 
 
-    layer = layers.Conv2D(45, [1, 1], padding='same', activation=tf.nn.relu, name='C11_branch_pyramid_1')(layer)
+    layer = layers.Conv2D(30, [1, 1], padding='same', activation=tf.nn.relu, name='C11_branch_pyramid_1')(layer)
 
 
     return layer
@@ -464,6 +464,13 @@ def branch_pyramid_6(input_layers):
 
 
 def get_model_multi_label_classifier_XXX(shape=None):
+    '''
+    Нейронка для дефектов
+    Совет: Я пришел к тому, что нужна пирамида изображений, с inception блоками и остаточными связями
+    но как появятся нормальные данные там видно будет
+    :param shape:
+    :return:
+    '''
     Input = layers.Input(shape=shape)
 
 

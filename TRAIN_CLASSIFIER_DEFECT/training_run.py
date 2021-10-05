@@ -1,3 +1,8 @@
+'''
+Обучал в этом докере https://www.tensorflow.org/install/docker
+tendorflow 2.4. можно и без докера, но у меня текла память, хотя и всю сборку зависимостей четко
+учел. В докере тоже немного поттекает, я так полагаю дело в tf.DaraSet
+'''
 from tools import load_data
 from tools import constants
 from models import models
@@ -19,9 +24,6 @@ def run():
                                                                                           seed=constants.CLASSIFIER_MULTI_LABEL_RANDOM_SEED) #ds_validation,
     tf.keras.backend.clear_session()
 
-    #strategy = tf.distribute.MultiWorkerMirroredStrategy()
-
-    #with strategy.scope():
     classifier_model = models.get_model_multi_label_classifier_XXX(
         shape=(constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], 3))
     # classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.801.h5', compile=False)

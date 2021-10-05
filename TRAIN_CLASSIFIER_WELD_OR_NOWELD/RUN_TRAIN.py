@@ -1,3 +1,6 @@
+'''
+модуль определения наличия шва
+'''
 from tools import load_data
 from tools import constants
 from models import models

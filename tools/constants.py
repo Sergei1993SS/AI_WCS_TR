@@ -1,9 +1,13 @@
-PATH_DATASET = "/home/sergei/DataSet/" #/home/sergei/DataSet/
+#Путь до папки с сетами
+PATH_DATASET = "/DataSet/" #/home/sergei/DataSet/
+
+#Размер оригинального изображения
 SHAPE_ORIGIN_IMAGE = [2048, 2448, 3]
 '''
 <BINARY CLASSIFIER>
 '''
 CLASIIFIER_MODE_LOAD = 'JPEG'
+#путь до сета с отстуствием шва
 CLASSIFIER_BINARY_PATH_NO_WELD = PATH_DATASET + "Set_no_weld/IMAGES/" + CLASIIFIER_MODE_LOAD + "/"
 
 CLASSIFIER_BINARY_NP_SEED = 21115

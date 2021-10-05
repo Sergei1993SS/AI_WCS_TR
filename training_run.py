@@ -21,10 +21,11 @@ def run():
 
     #strategy = tf.distribute.MultiWorkerMirroredStrategy()
 
-    #with strategy.scope():
+    '''#with strategy.scope():'''
     classifier_model = models.get_model_multi_label_classifier_XXX(
         shape=(constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[0], constants.CLASSIFIER_MULTI_LABEL_IMG_SIZE[1], 3))
-    #classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.846.h5', compile=False)
+
+    #classifier_model = tf.keras.models.load_model(constants.CLASSIFIER_MULTI_LABEL_SAVE_PATH + '/classifier_defects0.629.h5', compile=False)
     classifier_model.summary()
     CallBack_SaveModel = callback.Classifier_Defect_CallBack()
     CallBack_TensorDoard = tf.keras.callbacks.TensorBoard(log_dir=constants.CLASSIFIER_MULTI_LABEL_LOG_DIR,

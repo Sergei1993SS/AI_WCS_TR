@@ -687,7 +687,11 @@ def load_data_set_balanced_classifier_defects(split_size=0.9, seed=1):
 
 ################################################################################
 def get_marking_balanced_dataset_cast(jsons):
-
+    '''
+    Формируем словари изображений и меток к ним
+    :param jsons: список файлов аннотаций
+    :return:
+    '''
     images = {}
     labels = {}
     counter = {}
@@ -707,6 +711,7 @@ def get_marking_balanced_dataset_cast(jsons):
 
                 if os.path.isfile(path_img):
                     if len(image["Masks"]) > 0:
+                        #
                         label, defects = make_label_cast(image["Masks"])
 
 
@@ -820,6 +825,15 @@ def split_balanced_defects_cast_old(dict_images, dict_labels, split_size, seed):
 
 
 def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
+    '''
+    Делим всю дату на тренировочный и валидационный набор. При расширении классов здесь тоже нужно
+    изменить. Делаем непересикающиеся выборки
+    :param dict_images: словарь изображений по типу дефектов
+    :param dict_labels: соответствующие им метки
+    :param split_size: размер среза
+    :param seed: начальное значения рандома
+    :return:
+    '''
     random_obj = random.Random(seed)
 
     count_glass_val = len(dict_images['glass']) - int(len(dict_images['glass'])*split_size)
@@ -1011,8 +1025,16 @@ def split_balanced_defects_cast(dict_images, dict_labels, split_size, seed):
            background_images_train, background_labels_train, background_images_validation, background_labels_validation
 
 def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
-
+    '''
+    Формируем сбалансированные тренировочный и валидационный наборы
+    :param split_size:
+    :param seed:
+    :return:
+    '''
+    # Пробегаем по сетам и собираем jsons
     jsons = statistics.get_jsons()
+
+    #формируем списки путей изображений и меток к ним
     images, labels, counter = get_marking_balanced_dataset_cast(jsons)
     print(counter)
     glass_images_train, glass_labels_train, glass_images_validation, glass_labels_validation, \
@@ -1105,11 +1127,17 @@ def load_data_set_balanced_classifier_defects_cast(split_size=0.9, seed=1):
 
 
 def make_label_cast(masks):
-
+    '''
+    Формируем списки дефектов и метки к ним. Здесь нужно будет доработать при расширении
+    на другие классы дефектов
+    :param masks: маска, содержащая информацию о наличии дефектов
+    :return:
+    '''
     label = np.zeros(shape=(len(constants.CLASSIFIER_MULTI_LABEL_CLASSES))) # -1
 
     defects = []
     for mask in masks:
+        #Объеденяем прожог,свищ, поры и включения в один класс. Данных по каждому было мало, но в цлом они похожи визуально
         if mask['class_name'] == 'burn_and_fistula' or mask['class_name'] == 'pores_and_inclusions':
             defects.append('burn_and_fistula_pores_and_inclusions')
         if mask['class_name'] == 'crater' or mask['class_name'] == 'shell':
@@ -1124,8 +1152,6 @@ def make_label_cast(masks):
             defects.append('background')
         else:
             pass
-            #print('List defects for make label is empty')
-            #exit()
 
     for defect in defects:
         #if defect != 'background':
